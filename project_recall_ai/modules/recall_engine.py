@@ -127,7 +127,7 @@ class RecallEngine:
         if df is None or df.empty:
             return pd.DataFrame(columns=[
                 'FinalScore', 'TextScore', 'PhaseBonus', 'CategoryBonus',
-                'Project Category','Project Reference','Phase','Problems Encountered','Solutions Adopted'
+                'COMMESSA', 'CLIENTE', 'ANNO', 'TIPO MACCHINA', 'APPLICAZIONE', 'TIPO PROBLEMA', 'DESCRIZIONE', 'SOLUZIONE LESSON LEARNED', 'DATA INSERIMENTO', 'RCPRD', 'REPORT CANTIERE', 'CONCERNED DEPARTMENTS', 'REPORT RIUNIONE CHIUSURA PROGETTO'
             ])
 
         # Load embeddings
