@@ -1,42 +1,94 @@
 # modules/data_handler.py
-import pandas as pd
 
-REQUIRED_COLS = ['COMMESSA', 'CLIENTE', 'ANNO', 'TIPO MACCHINA', 'APPLICAZIONE', 'TIPO PROBLEMA', 'DESCRIZIONE', 'SOLUZIONE LESSON LEARNED', 'DATA INSERIMENTO', 'RCPRD', 'REPORT CANTIERE', 'CONCERNED DEPARTMENTS', 'REPORT RIUNIONE CHIUSURA PROGETTO']
+import pandas as pd
+import re
+
+# Final required schema
+REQUIRED_COLS = [
+    'COMMESSA',
+    'CLIENTE',
+    'ANNO',
+    'TIPO MACCHINA',
+    'APPLICAZIONE',
+    'TIPO PROBLEMA',
+    'DESCRIZIONE',
+    'SOLUZIONE LESSON LEARNED',
+    'DATA INSERIMENTO',
+    'RCPRD',
+    'REPORT CANTIERE',
+    'CONCERNED DEPARTMENTS',
+    'REPORT RIUNIONE CHIUSURA PROGETTO'
+]
+
+# Legacy → New column mapping
+LEGACY_MAP = {
+    'project category': 'TIPO MACCHINA',
+    'project reference': 'CLIENTE',
+    'phase': 'APPLICAZIONE',
+    'problems encountered': 'DESCRIZIONE',
+    'solutions adopted': 'SOLUZIONE LESSON LEARNED'
+}
+
+
+def normalize(col: str) -> str:
+    """Normalize column name for matching"""
+    return re.sub(r'[^a-z0-9]', '', col.lower())
+
 
 class DataHandler:
     @staticmethod
     def read_and_validate(uploaded_file):
         try:
             name = uploaded_file.name.lower()
-            if name.endswith('.csv'):
+            if name.endswith(".csv"):
                 df = pd.read_csv(uploaded_file)
             else:
                 df = pd.read_excel(uploaded_file)
         except Exception as e:
-            return None, f"Could not read file: {e}"
+            return None, f"❌ Could not read file: {e}"
 
-        # Try to map columns heuristically (case-insensitive)
-        cols = list(df.columns)
-        mapping = {}
-        lower_map = {c.lower(): c for c in cols}
+        if df.empty:
+            return None, "❌ Uploaded file is empty."
+
+        original_cols = list(df.columns)
+
+        # Build normalized lookup
+        normalized_lookup = {normalize(c): c for c in original_cols}
+
+        rename_map = {}
+
+        # 1️⃣ Handle legacy column names
+        for legacy, new in LEGACY_MAP.items():
+            norm_legacy = normalize(legacy)
+            if norm_legacy in normalized_lookup:
+                rename_map[normalized_lookup[norm_legacy]] = new
+
+        # 2️⃣ Match required columns (fuzzy)
         for rc in REQUIRED_COLS:
-            if rc in cols:
+            if rc in original_cols:
                 continue
-            if rc.lower() in lower_map:
-                mapping[lower_map[rc.lower()]] = rc
-            else:
-                # try small variations
-                for c in cols:
-                    if c.strip().lower().startswith(rc.split()[0].lower()):
-                        mapping[c] = rc
-                        break
 
-        if mapping:
-            df = df.rename(columns=mapping)
+            norm_rc = normalize(rc)
 
+            if norm_rc in normalized_lookup:
+                rename_map[normalized_lookup[norm_rc]] = rc
+                continue
+
+            # partial fuzzy match
+            for norm_col, original in normalized_lookup.items():
+                if norm_rc.startswith(norm_col) or norm_col.startswith(norm_rc):
+                    rename_map[original] = rc
+                    break
+
+        if rename_map:
+            df = df.rename(columns=rename_map)
+
+        # 3️⃣ Final validation
         missing = [c for c in REQUIRED_COLS if c not in df.columns]
         if missing:
-            return None, f"Missing required columns: {missing}"
+            return None, f"❌ Missing required columns: {missing}"
 
-        df = df[REQUIRED_COLS].fillna('')
+        # 4️⃣ Enforce schema + sanitize
+        df = df[REQUIRED_COLS].fillna('').astype(str)
+
         return df, None
