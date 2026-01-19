@@ -1,7 +1,7 @@
 # modules/data_handler.py
 import pandas as pd
 
-REQUIRED_COLS = ['Project Category','Project Reference','Phase','Problems Encountered','Solutions Adopted']
+REQUIRED_COLS = ['COMMESSA', 'CLIENTE', 'ANNO', 'TIPO MACCHINA', 'APPLICAZIONE', 'TIPO PROBLEMA', 'DESCRIZIONE', 'SOLUZIONE LESSON LEARNED', 'DATA INSERIMENTO', 'RCPRD', 'REPORT CANTIERE', 'CONCERNED DEPARTMENTS', 'REPORT RIUNIONE CHIUSURA PROGETTO']
 
 class DataHandler:
     @staticmethod
