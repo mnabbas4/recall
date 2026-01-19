@@ -76,11 +76,11 @@ class RecallEngine:
         matched_category = None
 
         # Get unique values from dataframe
-        phases = [str(x) for x in pd.unique(df['Phase'].dropna()) if str(x).strip() != ""]
-        categories = [str(x) for x in pd.unique(df['Project Category'].dropna()) if str(x).strip() != ""]
+        APPLICAZIONI = [str(x) for x in pd.unique(df['APPLICAZIONE'].dropna()) if str(x).strip() != ""]
+        categories = [str(x) for x in pd.unique(df['TIPO MACCHINA'].dropna()) if str(x).strip() != ""]
 
         # Check for phase matches
-        for p in phases:
+        for p in APPLICAZIONI:
             score = fuzz.partial_ratio(p.lower(), q)
             if score >= self.phase_threshold:
                 matched_phase = p
@@ -142,9 +142,9 @@ class RecallEngine:
         candidate_idxs = list(range(len(emb_list)))
         if enforce_context:
             if matched_phase:
-                candidate_idxs = [i for i in candidate_idxs if str(df.iloc[i].get('Phase','')).strip().lower() == matched_phase.lower()]
+                candidate_idxs = [i for i in candidate_idxs if str(df.iloc[i].get('APPLICAZIONE','')).strip().lower() == matched_phase.lower()]
             if matched_category:
-                candidate_idxs = [i for i in candidate_idxs if str(df.iloc[i].get('Project Category','')).strip().lower() == matched_category.lower()]
+                candidate_idxs = [i for i in candidate_idxs if str(df.iloc[i].get('TIPO MACCHINA','')).strip().lower() == matched_category.lower()]
 
             if len(candidate_idxs) == 0:
                 # Fall back to all if strict filtering removes everything
@@ -162,7 +162,7 @@ class RecallEngine:
             # Phase bonus (fuzzy)
             phase_bonus = 0.0
             if matched_phase:
-                p = str(df.iloc[idx].get('Phase','')).lower()
+                p = str(df.iloc[idx].get('APPLICAZIONE','')).lower()
                 ph_score = fuzz.partial_ratio(p, matched_phase.lower()) if p else 0
                 if ph_score >= 85:
                     phase_bonus = 1.0
@@ -172,7 +172,7 @@ class RecallEngine:
             # Category bonus (fuzzy)
             category_bonus = 0.0
             if matched_category:
-                c = str(df.iloc[idx].get('Project Category','')).lower()
+                c = str(df.iloc[idx].get('TIPO MACCHINA','')).lower()
                 cat_score = fuzz.partial_ratio(c, matched_category.lower()) if c else 0
                 if cat_score >= 85:
                     category_bonus = 1.0
@@ -214,11 +214,19 @@ class RecallEngine:
                 'TextScore': r['TextScore'],
                 'PhaseBonus': r['PhaseBonus'],
                 'CategoryBonus': r['CategoryBonus'],
-                'Project Category': row.get('Project Category',''),
-                'Project Reference': row.get('Project Reference',''),
-                'Phase': row.get('Phase',''),
-                'Problems Encountered': row.get('Problems Encountered',''),
-                'Solutions Adopted': row.get('Solutions Adopted',''),
+                'COMMESSA': row.get('COMMESSA',''),
+                'CLIENTE': row.get('CLIENTE',''),
+                'ANNO': row.get('ANNO',''),
+                'TIPO MACCHINA': row.get('TIPO MACCHINA',''),
+                'APPLICAZIONE': row.get('APPLICAZIONE',''),
+                'TIPO PROBLEMA': row.get('TIPO PROBLEMA',''),
+                'DESCRIZIONE': row.get('DESCRIZIONE',''),
+                'SOLUZIONE LESSON LEARNED': row.get('SOLUZIONE LESSON LEARNED',''),
+                'DATA INSERIMENTO': row.get('DATA INSERIMENTO',''),
+                'RCPRD': row.get('RCPRD',''),
+                'REPORT CANTIERE': row.get('REPORT CANTIERE',''),
+                'CONCERNED DEPARTMENTS': row.get('CONCERNED DEPARTMENTS',''),
+                'REPORT RIUNIONE CHIUSURA PROGETTO': row.get('REPORT RIUNIONE CHIUSURA PROGETTO',''),
                 'AddedBy': row.get('AddedBy','')
             })
 
@@ -236,7 +244,7 @@ class RecallEngine:
         Returns:
             dict: {
                 'top_problems': list of {problem, count, avg_score, solutions},
-                'per_phase_summary': {phase: {'matches': n, 'top_problems': {problem: count}}}
+                'per_phase_summary': {APPLICAZIONE: {'matches': n, 'top_problems': {problem: count}}}
             }
         """
         if matches_df is None or matches_df.empty:
@@ -244,11 +252,11 @@ class RecallEngine:
 
         df = matches_df.copy()
         # Normalize problem text
-        df['Problem_norm'] = df['Problems Encountered'].astype(str).str.strip().str.lower()
+        df['Problem_norm'] = df['DESCRIZIONE'].astype(str).str.strip().str.lower()
         grouped = df.groupby('Problem_norm').agg(
             count=('Problem_norm','size'),
             avg_score=('FinalScore','mean'),
-            solutions=('Solutions Adopted', lambda s: list(pd.unique(s)))
+            solutions=('SOLUZIONE LESSON LEARNED', lambda s: list(pd.unique(s)))
         ).reset_index().sort_values('count', ascending=False)
 
         top_problems = []
@@ -261,10 +269,10 @@ class RecallEngine:
             })
 
         per_phase = {}
-        for phase, grp in df.groupby('Phase'):
-            per_phase[phase] = {
+        for APPLICAZIONE, grp in df.groupby('APPLICAZIONE'):
+            per_phase[APPLICAZIONE] = {
                 'matches': int(len(grp)),
-                'top_problems': grp['Problems Encountered'].value_counts().head(5).to_dict()
+                'top_problems': grp['DESCRIZIONE'].value_counts().head(5).to_dict()
             }
 
         return {'top_problems': top_problems, 'per_phase_summary': per_phase}
