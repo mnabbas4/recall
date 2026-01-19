@@ -30,7 +30,7 @@ class EmbeddingsEngine:
 
     def _text_for_row(self, row):
         """Combine row data into searchable text"""
-        cols = ['Project Category','Project Reference','Phase','Problems Encountered','Solutions Adopted']
+        cols = ['COMMESSA', 'CLIENTE', 'ANNO', 'TIPO MACCHINA', 'APPLICAZIONE', 'TIPO PROBLEMA', 'DESCRIZIONE', 'SOLUZIONE LESSON LEARNED', 'DATA INSERIMENTO', 'RCPRD', 'REPORT CANTIERE', 'CONCERNED DEPARTMENTS', 'REPORT RIUNIONE CHIUSURA PROGETTO']
         return " || ".join([str(row.get(c,'')) for c in cols if row.get(c,'')])
 
     def embed_texts(self, texts):
