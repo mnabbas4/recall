@@ -16,7 +16,7 @@ import streamlit as st
 def get_api_key():
     try:
         return st.secrets.get("OPENAI_API_KEY")
-    except:
+    except Exception:
         return os.getenv("OPENAI_API_KEY")
 
 _OPENAI_KEY = get_api_key()
@@ -29,12 +29,15 @@ _openai_client = OpenAI(api_key=_OPENAI_KEY) if _OPENAI_KEY else None
 def _cosine_similarity(a, b):
     a = np.array(a, dtype=float)
     b = np.array(b, dtype=float)
+
     if a.size == 0 or b.size == 0:
         return 0.0
+
     na = np.linalg.norm(a)
     nb = np.linalg.norm(b)
     if na == 0 or nb == 0:
         return 0.0
+
     return float(np.dot(a, b) / (na * nb))
 
 
@@ -42,12 +45,26 @@ def _cosine_similarity(a, b):
 # RECALL ENGINE
 # =====================================================
 class RecallEngine:
-    def __init__(self, emb_engine, mem_manager,
-                 phase_match_threshold=75,
-                 category_match_threshold=75):
-
+    def __init__(
+        self,
+        emb_engine,
+        mem_manager,
+        category_col,
+        phase_col,
+        problem_col,
+        solution_col,
+        phase_match_threshold=75,
+        category_match_threshold=75,
+    ):
         self.emb_engine = emb_engine
         self.mem_manager = mem_manager
+
+        # column configuration
+        self.category_col = category_col
+        self.phase_col = phase_col
+        self.problem_col = problem_col
+        self.solution_col = solution_col
+
         self.phase_threshold = phase_match_threshold
         self.category_threshold = category_match_threshold
 
@@ -60,9 +77,15 @@ class RecallEngine:
 
     # -------------------------------------------------
     def _load_embeddings(self, mem_id):
-        path = Path(self.mem_manager.base) / "memories" / f"{mem_id}_embeddings.json"
+        path = (
+            Path(self.mem_manager.base)
+            / "memories"
+            / f"{mem_id}_embeddings.json"
+        )
+
         if not path.exists():
             return None
+
         payload = json.loads(path.read_text())
 
         if not isinstance(payload, dict):
@@ -78,23 +101,24 @@ class RecallEngine:
         matched_phase = None
         matched_category = None
 
-        applicazioni = [
-            str(x) for x in pd.unique(df["APPLICAZIONE"].dropna())
-            if str(x).strip()
-        ]
-        macchine = [
-            str(x) for x in pd.unique(df["TIPO MACCHINA"].dropna())
+        phases = [
+            str(x) for x in pd.unique(df[self.phase_col].dropna())
             if str(x).strip()
         ]
 
-        for a in applicazioni:
-            if fuzz.partial_ratio(a.lower(), q) >= self.phase_threshold:
-                matched_phase = a
+        categories = [
+            str(x) for x in pd.unique(df[self.category_col].dropna())
+            if str(x).strip()
+        ]
+
+        for p in phases:
+            if fuzz.partial_ratio(p.lower(), q) >= self.phase_threshold:
+                matched_phase = p
                 break
 
-        for m in macchine:
-            if fuzz.partial_ratio(m.lower(), q) >= self.category_threshold:
-                matched_category = m
+        for c in categories:
+            if fuzz.partial_ratio(c.lower(), q) >= self.category_threshold:
+                matched_category = c
                 break
 
         return matched_phase, matched_category
@@ -113,6 +137,8 @@ class RecallEngine:
         weight_category=0.15,
         fallback_k=3,
     ):
+        if not self.emb_engine:
+            return pd.DataFrame()
 
         q_text = self._correct_spelling(query) if spell_correction else query
 
@@ -123,7 +149,7 @@ class RecallEngine:
         payload = self._load_embeddings(mem_id)
         if payload is None:
             raise FileNotFoundError(
-                f"Embeddings for memory '{mem_id}' not found or invalid."
+                f"Embeddings for memory '{mem_id}' not found."
             )
 
         embeddings = payload["embeddings"]
@@ -131,7 +157,6 @@ class RecallEngine:
 
         matched_phase, matched_category = self._extract_context_hints(q_text, df)
 
-        # Candidate indices are embedding indices
         candidate_idxs = list(range(len(embeddings)))
 
         if enforce_context:
@@ -140,9 +165,9 @@ class RecallEngine:
                 df_idx = row_ids[emb_idx]
                 row = df.loc[df_idx]
 
-                if matched_phase and str(row["APPLICAZIONE"]).lower() != matched_phase.lower():
+                if matched_phase and str(row[self.phase_col]).lower() != matched_phase.lower():
                     continue
-                if matched_category and str(row["TIPO MACCHINA"]).lower() != matched_category.lower():
+                if matched_category and str(row[self.category_col]).lower() != matched_category.lower():
                     continue
 
                 filtered.append(emb_idx)
@@ -161,23 +186,23 @@ class RecallEngine:
             phase_bonus = 0.0
             if matched_phase:
                 s = fuzz.partial_ratio(
-                    str(row["APPLICAZIONE"]).lower(),
-                    matched_phase.lower()
+                    str(row[self.phase_col]).lower(),
+                    matched_phase.lower(),
                 )
                 phase_bonus = 1.0 if s >= 85 else 0.5 if s >= 65 else 0.0
 
             category_bonus = 0.0
             if matched_category:
                 s = fuzz.partial_ratio(
-                    str(row["TIPO MACCHINA"]).lower(),
-                    matched_category.lower()
+                    str(row[self.category_col]).lower(),
+                    matched_category.lower(),
                 )
                 category_bonus = 1.0 if s >= 85 else 0.5 if s >= 65 else 0.0
 
             final_score = (
-                weight_text * text_score +
-                weight_phase * phase_bonus +
-                weight_category * category_bonus
+                weight_text * text_score
+                + weight_phase * phase_bonus
+                + weight_category * category_bonus
             )
 
             scored.append({
@@ -188,13 +213,16 @@ class RecallEngine:
                 "FinalScore": round(final_score, 4),
             })
 
-        scored_df = pd.DataFrame(scored).sort_values("FinalScore", ascending=False)
+        scored_df = pd.DataFrame(scored).sort_values(
+            "FinalScore", ascending=False
+        )
+
         matches = scored_df[scored_df["FinalScore"] >= min_score]
 
-        used_fallback = False
         if matches.empty:
-            used_fallback = True
-            matches = scored_df.sort_values("TextScore", ascending=False).head(fallback_k)
+            matches = scored_df.sort_values(
+                "TextScore", ascending=False
+            ).head(fallback_k)
 
         if hard_limit:
             matches = matches.head(hard_limit)
@@ -203,17 +231,7 @@ class RecallEngine:
         for _, r in matches.iterrows():
             row = df.loc[r["df_idx"]]
             rec = row.to_dict()
-            rec.update({
-                "FinalScore": r["FinalScore"],
-                "TextScore": r["TextScore"],
-                "PhaseBonus": r["PhaseBonus"],
-                "CategoryBonus": r["CategoryBonus"],
-            })
+            rec.update(r.to_dict())
             out_rows.append(rec)
 
-        out_df = pd.DataFrame(out_rows)
-        out_df.attrs["used_fallback"] = used_fallback
-        out_df.attrs["matched_phase"] = matched_phase
-        out_df.attrs["matched_category"] = matched_category
-
-        return out_df
+        return pd.DataFrame(out_rows)
