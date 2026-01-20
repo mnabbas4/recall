@@ -235,3 +235,54 @@ class RecallEngine:
             out_rows.append(rec)
 
         return pd.DataFrame(out_rows)
+
+
+    # -------------------------------------------------
+    def generate_structured_insights(self, df: pd.DataFrame):
+        """
+        Generate structured insights from recall results.
+        Deterministic, safe, no LLM required.
+        """
+
+        if df is None or df.empty:
+            return {
+                "matches": 0,
+                "summary": "No relevant historical records found.",
+                "top_machine_types": [],
+                "top_applications": [],
+                "common_problems": [],
+                "common_solutions": []
+            }
+
+        def top_values(series, k=5):
+            return (
+                series.dropna()
+                .astype(str)
+                .value_counts()
+                .head(k)
+                .index.tolist()
+            )
+
+        insights = {
+            "matches": len(df),
+            "summary": f"{len(df)} relevant historical records found.",
+            "top_machine_types": top_values(df.get(self.category_col)),
+            "top_applications": top_values(df.get(self.phase_col)),
+            "common_problems": (
+                df.get(self.problem_col)
+                .dropna()
+                .astype(str)
+                .head(5)
+                .tolist()
+            ),
+            "common_solutions": (
+                df.get(self.solution_col)
+                .dropna()
+                .astype(str)
+                .head(5)
+                .tolist()
+            )
+        }
+
+        return insights
+
