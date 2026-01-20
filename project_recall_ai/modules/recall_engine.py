@@ -1,5 +1,4 @@
 # modules/recall_engine.py
-print("### NEW RECALL ENGINE LOADED ###")
 
 import os
 import json
