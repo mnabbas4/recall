@@ -333,9 +333,6 @@ class RecallEngine:
         value: str,
         exact: bool = False
     ) -> pd.DataFrame:
-        """
-        Structured filtering without embeddings.
-        """
     
         df = self.mem_manager.load_memory_dataframe(mem_id)
         if df is None or df.empty:
@@ -352,3 +349,4 @@ class RecallEngine:
             )
     
         return df[mask].reset_index(drop=True)
+
