@@ -211,7 +211,15 @@ elif mode == "Query Knowledge Base":
             st.dataframe(res, use_container_width=True)
 
             insights = recall_engine.generate_structured_insights(res)
-            st.json(insights)
+            answer = recall_engine.generate_natural_language_answer(
+                                                    
+                insights=insights,
+                query=q
+            )
+
+            st.markdown("### 🧠 Answer")
+            st.markdown(answer)
+
 
 # =====================================================
 # SETTINGS
