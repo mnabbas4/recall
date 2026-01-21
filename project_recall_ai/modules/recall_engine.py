@@ -325,3 +325,30 @@ class RecallEngine:
     
         return "\n".join(text)
 
+    # -------------------------------------------------
+    def filter_memory(
+        self,
+        mem_id: str,
+        column: str,
+        value: str,
+        exact: bool = False
+    ) -> pd.DataFrame:
+        """
+        Structured filtering without embeddings.
+        """
+    
+        df = self.mem_manager.load_memory_dataframe(mem_id)
+        if df is None or df.empty:
+            return pd.DataFrame()
+    
+        if column not in df.columns:
+            return pd.DataFrame()
+    
+        if exact:
+            mask = df[column].astype(str).str.lower() == value.lower()
+        else:
+            mask = df[column].astype(str).str.contains(
+                value, case=False, na=False
+            )
+    
+        return df[mask].reset_index(drop=True)
