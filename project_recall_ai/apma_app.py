@@ -202,8 +202,57 @@ elif mode == "Query Knowledge Base":
     mems = mem_manager.list_memories()
     if not mems:
         st.warning("No memories")
+        st.stop()
+
+    mem = st.selectbox("Memory", mems)
+
+    # 🔁 QUERY TYPE
+    query_mode = st.radio(
+        "Query type",
+        ["AI Semantic Search", "Structured Filter Search"],
+        horizontal=True
+    )
+
+    # =====================================================
+    # STRUCTURED FILTER SEARCH
+    # =====================================================
+    if query_mode == "Structured Filter Search":
+
+        FILTERABLE_COLUMNS = {
+            "COMMESSA": "COMMESSA",
+            "CLIENTE": "CLIENTE",
+            "ANNO": "ANNO",
+            "TIPO MACCHINA": "TIPO MACCHINA",
+            "APPLICAZIONE": "APPLICAZIONE",
+            "TIPO PROBLEMA": "TIPO PROBLEMA"
+        }
+
+        col1, col2 = st.columns(2)
+
+        selected_col_label = col1.selectbox(
+            "Filter by",
+            list(FILTERABLE_COLUMNS.keys())
+        )
+
+        filter_value = col2.text_input("Value")
+
+        exact_match = st.checkbox("Exact match", value=False)
+
+        if st.button("Filter"):
+            df = recall_engine.filter_memory(
+                mem_id=mem,
+                column=FILTERABLE_COLUMNS[selected_col_label],
+                value=filter_value,
+                exact=exact_match
+            )
+
+            st.dataframe(df, use_container_width=True)
+            st.info(f"{len(df)} records found.")
+
+    # =====================================================
+    # AI SEMANTIC SEARCH (EXISTING)
+    # =====================================================
     else:
-        mem = st.selectbox("Memory", mems)
         q = st.text_area("Query")
 
         if st.button("Search") and emb_engine:
