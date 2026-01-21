@@ -212,7 +212,6 @@ elif mode == "Query Knowledge Base":
 
             insights = recall_engine.generate_structured_insights(res)
             answer = recall_engine.generate_natural_language_answer(
-                                                    
                 insights=insights,
                 query=q
             )
