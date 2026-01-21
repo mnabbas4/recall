@@ -285,4 +285,43 @@ class RecallEngine:
         }
 
         return insights
+def generate_natural_language_answer(self, insights: dict, query: str) -> str:
+    """
+    Convert structured insights into a human-readable explanation.
+    """
+
+    if not insights or insights.get("matches", 0) == 0:
+        return (
+            f"I could not find relevant past projects related to your query: "
+            f"'{query}'."
+        )
+
+    machines = ", ".join(insights.get("top_machine_types", []))
+    applications = ", ".join(insights.get("top_applications", []))
+
+    problems = insights.get("common_problems", [])
+    solutions = insights.get("common_solutions", [])
+
+    text = []
+    text.append(
+        f"Based on {insights['matches']} similar historical projects related to "
+        f"**{applications}**, mainly involving **{machines}**, the following "
+        f"recurring problems were identified:"
+    )
+
+    for p in problems:
+        text.append(f"- {p}")
+
+    if solutions:
+        text.append("\nTo address these issues, the following solutions and lessons learned were applied:")
+        for s in solutions:
+            text.append(f"- {s}")
+
+    text.append(
+        "\n**Summary:** Similar projects show that accurate layout definition, "
+        "realistic installation effort estimation, and early alignment with "
+        "clients and suppliers are critical to avoid cost overruns and delays."
+    )
+
+    return "\n".join(text)
 
