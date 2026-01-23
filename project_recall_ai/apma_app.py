@@ -1,9 +1,11 @@
-# apma_app.py - Deployment Ready Version (Corrected)
-print ("hello")
+# apma_app.py - Deployment Ready Version (Manual Entry Fixed)
+
+print("hello")
 import streamlit as st
 import os
 import pandas as pd
 from streamlit import rerun
+from datetime import date
 
 from modules.file_manager import MemoryManager
 from modules.data_handler import DataHandler
@@ -11,6 +13,7 @@ from modules.embeddings_engine import EmbeddingsEngine
 from modules.recall_engine import RecallEngine
 from modules.utils import ensure_data_dirs
 from modules import user_manager
+from modules.manual_config import load_config
 
 # =====================================================
 # CONFIGURATION
@@ -60,9 +63,9 @@ if 'user' not in st.session_state:
 if st.session_state['user'] is None:
     st.sidebar.header("🔐 Login")
 
-    mode = st.sidebar.radio("Mode", ["Login", "Create account"])
+    mode_auth = st.sidebar.radio("Mode", ["Login", "Create account"])
 
-    if mode == "Create account":
+    if mode_auth == "Create account":
         fn = st.sidebar.text_input("First name")
         ln = st.sidebar.text_input("Last name")
         uid = st.sidebar.text_input("ID Number")
@@ -71,7 +74,6 @@ if st.session_state['user'] is None:
         if st.sidebar.button("Create"):
             ok, msg = user_manager.create_user(fn, ln, uid, pw)
             st.sidebar.success(msg) if ok else st.sidebar.error(msg)
-
     else:
         uid = st.sidebar.text_input("ID Number")
         pw = st.sidebar.text_input("Password", type="password")
@@ -110,7 +112,7 @@ recall_engine = RecallEngine(
 # =====================================================
 if st.session_state.get("user"):
     u = st.session_state["user"]
-    col1, col2 = st.columns([4,1])
+    col1, col2 = st.columns([4, 1])
     col1.markdown(f"**Logged in:** {u['first_name']} {u['last_name']} ({u['id']})")
     if col2.button("Logout"):
         st.session_state['user'] = None
@@ -135,7 +137,8 @@ if mode == "Upload / Update Memory":
         st.warning("Login required.")
         st.stop()
 
-    uploaded = st.file_uploader("Upload CSV / Excel", ["csv","xlsx"])
+    # ================= FILE UPLOAD ==================
+    uploaded = st.file_uploader("Upload CSV / Excel", ["csv", "xlsx"])
 
     if uploaded:
         df, err = DataHandler.read_and_validate(uploaded, required_cols=REQUIRED_COLS)
@@ -146,48 +149,62 @@ if mode == "Upload / Update Memory":
             st.dataframe(df.head(), use_container_width=True)
 
             mem_name = st.text_input("Memory name")
-            if st.button("Save"):
+            if st.button("Save file to memory"):
                 df["AddedBy"] = st.session_state["user"]["id"]
                 meta = mem_manager.create_or_update_memory(mem_name, df)
-                st.success("Saved")
 
                 if emb_engine:
                     emb_engine.index_dataframe(meta["memory_path"], df, id_prefix=meta["memory_id"])
 
+                st.success("File saved and indexed")
+
     # ================= MANUAL ENTRY ==================
-    from modules.manual_config import load_config
-    from datetime import date
-    
+    st.markdown("---")
     st.subheader("✍️ Manual Entry")
-    
+
+    memories = mem_manager.list_memories()
+
+    manual_mem_mode = st.radio(
+        "Save manual entries to:",
+        ["Create new memory", "Append to existing memory"],
+        horizontal=True
+    )
+
+    manual_memory_name = None
+
+    if manual_mem_mode == "Create new memory":
+        manual_memory_name = st.text_input("New memory name (manual entry)")
+    else:
+        if memories:
+            manual_memory_name = st.selectbox("Select existing memory", memories)
+        else:
+            st.warning("No existing memories found. Please create a new one.")
+
     config = load_config()
     manual_data = {}
-    
+
     with st.form("manual_dynamic"):
         cols = st.columns(4)
         col_idx = 0
-    
+
         for field, meta in config.items():
             ftype = meta["type"]
             key = f"manual_{field}"
-    
+
             with cols[col_idx]:
-                # TYPE 1 — TEXT
                 if ftype == "text":
                     if meta.get("multiline"):
                         manual_data[field] = st.text_area(field, key=key)
                     else:
                         manual_data[field] = st.text_input(field, key=key)
-    
-                # TYPE 2 — DROPDOWN
+
                 elif ftype == "select":
                     manual_data[field] = st.selectbox(
                         field,
                         options=meta.get("options", []),
                         key=key
                     )
-    
-                # TYPE 3 — DATE / YEAR
+
                 elif ftype == "date":
                     if meta.get("mode") == "year":
                         year = st.selectbox(
@@ -199,14 +216,43 @@ if mode == "Upload / Update Memory":
                     else:
                         d = st.date_input(field, key=key)
                         manual_data[field] = d.isoformat()
-    
+
             col_idx = (col_idx + 1) % 4
-    
-        submitted = st.form_submit_button("Add")
-    
+
+        submitted = st.form_submit_button("Add row")
+
     if submitted:
         st.session_state.setdefault("manual_rows", []).append(manual_data)
-        st.success("Row added")
+        st.success("Row added to buffer")
+
+    # ================= SAVE MANUAL ENTRIES ==================
+    if st.session_state.get("manual_rows"):
+        st.markdown("### 📄 Pending Manual Entries")
+        st.dataframe(pd.DataFrame(st.session_state["manual_rows"]), use_container_width=True)
+
+        if st.button("💾 Save Manual Entries to Memory"):
+            if not manual_memory_name:
+                st.error("Please select or create a target memory.")
+            else:
+                df_manual = pd.DataFrame(st.session_state["manual_rows"])
+                df_manual = df_manual[REQUIRED_COLS]
+                df_manual["AddedBy"] = st.session_state["user"]["id"]
+
+                meta = mem_manager.create_or_update_memory(
+                    manual_memory_name,
+                    df_manual
+                )
+
+                if emb_engine:
+                    emb_engine.index_dataframe(
+                        meta["memory_path"],
+                        df_manual,
+                        id_prefix=meta["memory_id"]
+                    )
+
+                st.session_state["manual_rows"] = []
+                st.success(f"Manual entries saved to '{manual_memory_name}'")
+                st.rerun()
 
 # =====================================================
 # QUERY MODE
@@ -221,18 +267,13 @@ elif mode == "Query Knowledge Base":
 
     mem = st.selectbox("Memory", mems)
 
-    # 🔁 QUERY TYPE
     query_mode = st.radio(
         "Query type",
         ["AI Semantic Search", "Structured Filter Search"],
         horizontal=True
     )
 
-    # =====================================================
-    # STRUCTURED FILTER SEARCH
-    # =====================================================
     if query_mode == "Structured Filter Search":
-
         FILTERABLE_COLUMNS = {
             "COMMESSA": "COMMESSA",
             "CLIENTE": "CLIENTE",
@@ -243,14 +284,8 @@ elif mode == "Query Knowledge Base":
         }
 
         col1, col2 = st.columns(2)
-
-        selected_col_label = col1.selectbox(
-            "Filter by",
-            list(FILTERABLE_COLUMNS.keys())
-        )
-
+        selected_col_label = col1.selectbox("Filter by", list(FILTERABLE_COLUMNS.keys()))
         filter_value = col2.text_input("Value")
-
         exact_match = st.checkbox("Exact match", value=False)
 
         if st.button("Filter"):
@@ -260,16 +295,11 @@ elif mode == "Query Knowledge Base":
                 value=filter_value,
                 exact=exact_match
             )
-
             st.dataframe(df, use_container_width=True)
             st.info(f"{len(df)} records found.")
 
-    # =====================================================
-    # AI SEMANTIC SEARCH (EXISTING)
-    # =====================================================
     else:
         q = st.text_area("Query")
-
         if st.button("Search") and emb_engine:
             res = recall_engine.query_memory(mem, q)
             st.dataframe(res, use_container_width=True)
@@ -282,7 +312,6 @@ elif mode == "Query Knowledge Base":
 
             st.markdown("### 🧠 Answer")
             st.markdown(answer)
-
 
 # =====================================================
 # SETTINGS
@@ -299,59 +328,3 @@ else:
             df = mem_manager.load_memory_dataframe(mid)
             emb_engine.index_dataframe(path, df, id_prefix=mid)
         st.success("Done")
-
-    st.markdown("---")
-
-    # ================= MANUAL ENTRY CONFIG =================
-    from modules.manual_config import load_config, save_config
-
-    st.subheader("🛠 Manual Entry Configuration")
-
-    cfg = load_config()
-
-    field = st.selectbox("Select field", list(cfg.keys()) + ["➕ Add new"])
-
-    # ADD NEW FIELD
-    if field == "➕ Add new":
-        new_name = st.text_input("Column name")
-        new_type = st.selectbox("Type", ["text", "select", "date"])
-
-        if st.button("Create") and new_name:
-            cfg[new_name] = {"type": new_type}
-            save_config(cfg)
-            st.success("Field added")
-            st.rerun()
-
-    # EDIT EXISTING FIELD
-    else:
-        meta = cfg[field]
-
-        meta["type"] = st.selectbox(
-            "Field type",
-            ["text", "select", "date"],
-            index=["text", "select", "date"].index(meta["type"])
-        )
-
-        if meta["type"] == "select":
-            options = st.text_area(
-                "Dropdown options (one per line)",
-                value="\n".join(meta.get("options", []))
-            )
-            meta["options"] = [o.strip() for o in options.splitlines() if o.strip()]
-
-        if meta["type"] == "date":
-            meta["mode"] = st.radio("Date mode", ["full", "year"])
-
-        if st.button("Save changes"):
-            cfg[field] = meta
-            save_config(cfg)
-            st.success("Updated")
-            st.rerun()
-
-    st.markdown("""
-    **APMA**
-    - Stores DESCRIZIONE & SOLUZIONE
-    - Searches by APPLICAZIONE & TIPO MACCHINA
-    - Prevents repeat project issues
-    """)
-
