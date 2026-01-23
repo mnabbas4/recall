@@ -1,4 +1,4 @@
-# apma_app.py - Deployment Ready Version (Manual Entry Fixed)
+# apma_app.py - Deployment Ready Version (Manual Entry + Memory Fixed)
 
 print("hello")
 import streamlit as st
@@ -13,7 +13,7 @@ from modules.embeddings_engine import EmbeddingsEngine
 from modules.recall_engine import RecallEngine
 from modules.utils import ensure_data_dirs
 from modules import user_manager
-from modules.manual_config import load_config
+from modules.manual_config import load_config, save_config
 
 # =====================================================
 # CONFIGURATION
@@ -63,9 +63,9 @@ if 'user' not in st.session_state:
 if st.session_state['user'] is None:
     st.sidebar.header("🔐 Login")
 
-    mode_auth = st.sidebar.radio("Mode", ["Login", "Create account"])
+    auth_mode = st.sidebar.radio("Mode", ["Login", "Create account"])
 
-    if mode_auth == "Create account":
+    if auth_mode == "Create account":
         fn = st.sidebar.text_input("First name")
         ln = st.sidebar.text_input("Last name")
         uid = st.sidebar.text_input("ID Number")
@@ -74,6 +74,7 @@ if st.session_state['user'] is None:
         if st.sidebar.button("Create"):
             ok, msg = user_manager.create_user(fn, ln, uid, pw)
             st.sidebar.success(msg) if ok else st.sidebar.error(msg)
+
     else:
         uid = st.sidebar.text_input("ID Number")
         pw = st.sidebar.text_input("Password", type="password")
@@ -128,7 +129,7 @@ mode = st.sidebar.selectbox("📂 Mode", [
 ])
 
 # =====================================================
-# UPLOAD MODE
+# UPLOAD / UPDATE MEMORY
 # =====================================================
 if mode == "Upload / Update Memory":
     st.header("📤 Upload / Update Memory")
@@ -137,7 +138,7 @@ if mode == "Upload / Update Memory":
         st.warning("Login required.")
         st.stop()
 
-    # ================= FILE UPLOAD ==================
+    # ---------------- FILE UPLOAD ----------------
     uploaded = st.file_uploader("Upload CSV / Excel", ["csv", "xlsx"])
 
     if uploaded:
@@ -149,70 +150,69 @@ if mode == "Upload / Update Memory":
             st.dataframe(df.head(), use_container_width=True)
 
             mem_name = st.text_input("Memory name")
-            if st.button("Save file to memory"):
+            if st.button("Save"):
                 df["AddedBy"] = st.session_state["user"]["id"]
                 meta = mem_manager.create_or_update_memory(mem_name, df)
 
                 if emb_engine:
-                    emb_engine.index_dataframe(meta["memory_path"], df, id_prefix=meta["memory_id"])
+                    emb_engine.index_dataframe(
+                        meta["memory_path"], df, id_prefix=meta["memory_id"]
+                    )
 
-                st.success("File saved and indexed")
+                st.success("Saved")
 
-    # ================= MANUAL ENTRY ==================
+    # ---------------- MANUAL ENTRY ----------------
     st.markdown("---")
     st.subheader("✍️ Manual Entry")
 
+    config = load_config()
+    manual_data = {}
+
     memories = mem_manager.list_memories()
 
-    manual_mem_mode = st.radio(
-        "Save manual entries to:",
+    mem_mode = st.radio(
+        "Save manual entry to:",
         ["Create new memory", "Append to existing memory"],
         horizontal=True
     )
 
-    manual_memory_name = None
-
-    if manual_mem_mode == "Create new memory":
-        manual_memory_name = st.text_input("New memory name (manual entry)")
+    target_memory = None
+    if mem_mode == "Create new memory":
+        target_memory = st.text_input("New memory name")
     else:
         if memories:
-            manual_memory_name = st.selectbox("Select existing memory", memories)
+            target_memory = st.selectbox("Select memory", memories)
         else:
-            st.warning("No existing memories found. Please create a new one.")
-
-    config = load_config()
-    manual_data = {}
+            st.warning("No existing memories available")
 
     with st.form("manual_dynamic"):
         cols = st.columns(4)
         col_idx = 0
 
         for field, meta in config.items():
-            ftype = meta["type"]
             key = f"manual_{field}"
 
             with cols[col_idx]:
-                if ftype == "text":
-                    if meta.get("multiline"):
-                        manual_data[field] = st.text_area(field, key=key)
-                    else:
-                        manual_data[field] = st.text_input(field, key=key)
-
-                elif ftype == "select":
-                    manual_data[field] = st.selectbox(
-                        field,
-                        options=meta.get("options", []),
-                        key=key
+                if meta["type"] == "text":
+                    manual_data[field] = (
+                        st.text_area(field, key=key)
+                        if meta.get("multiline")
+                        else st.text_input(field, key=key)
                     )
 
-                elif ftype == "date":
+                elif meta["type"] == "select":
+                    manual_data[field] = st.selectbox(
+                        field, meta.get("options", []), key=key
+                    )
+
+                elif meta["type"] == "date":
                     if meta.get("mode") == "year":
-                        year = st.selectbox(
+                        y = st.selectbox(
                             field,
-                            options=list(range(2000, date.today().year + 1)),
+                            list(range(2000, date.today().year + 1)),
                             key=key
                         )
-                        manual_data[field] = str(year)
+                        manual_data[field] = str(y)
                     else:
                         d = st.date_input(field, key=key)
                         manual_data[field] = d.isoformat()
@@ -223,35 +223,29 @@ if mode == "Upload / Update Memory":
 
     if submitted:
         st.session_state.setdefault("manual_rows", []).append(manual_data)
-        st.success("Row added to buffer")
+        st.success("Row added")
 
-    # ================= SAVE MANUAL ENTRIES ==================
     if st.session_state.get("manual_rows"):
         st.markdown("### 📄 Pending Manual Entries")
         st.dataframe(pd.DataFrame(st.session_state["manual_rows"]), use_container_width=True)
 
-        if st.button("💾 Save Manual Entries to Memory"):
-            if not manual_memory_name:
-                st.error("Please select or create a target memory.")
+        if st.button("💾 Save Manual Entries"):
+            if not target_memory:
+                st.error("Please select or create a memory.")
             else:
                 df_manual = pd.DataFrame(st.session_state["manual_rows"])
                 df_manual = df_manual[REQUIRED_COLS]
                 df_manual["AddedBy"] = st.session_state["user"]["id"]
 
-                meta = mem_manager.create_or_update_memory(
-                    manual_memory_name,
-                    df_manual
-                )
+                meta = mem_manager.create_or_update_memory(target_memory, df_manual)
 
                 if emb_engine:
                     emb_engine.index_dataframe(
-                        meta["memory_path"],
-                        df_manual,
-                        id_prefix=meta["memory_id"]
+                        meta["memory_path"], df_manual, id_prefix=meta["memory_id"]
                     )
 
                 st.session_state["manual_rows"] = []
-                st.success(f"Manual entries saved to '{manual_memory_name}'")
+                st.success(f"Saved to memory '{target_memory}'")
                 st.rerun()
 
 # =====================================================
@@ -283,20 +277,15 @@ elif mode == "Query Knowledge Base":
             "TIPO PROBLEMA": "TIPO PROBLEMA"
         }
 
-        col1, col2 = st.columns(2)
-        selected_col_label = col1.selectbox("Filter by", list(FILTERABLE_COLUMNS.keys()))
-        filter_value = col2.text_input("Value")
-        exact_match = st.checkbox("Exact match", value=False)
+        c1, c2 = st.columns(2)
+        col = c1.selectbox("Filter by", FILTERABLE_COLUMNS.keys())
+        val = c2.text_input("Value")
+        exact = st.checkbox("Exact match", False)
 
         if st.button("Filter"):
-            df = recall_engine.filter_memory(
-                mem_id=mem,
-                column=FILTERABLE_COLUMNS[selected_col_label],
-                value=filter_value,
-                exact=exact_match
-            )
+            df = recall_engine.filter_memory(mem, FILTERABLE_COLUMNS[col], val, exact)
             st.dataframe(df, use_container_width=True)
-            st.info(f"{len(df)} records found.")
+            st.info(f"{len(df)} records found")
 
     else:
         q = st.text_area("Query")
@@ -305,10 +294,7 @@ elif mode == "Query Knowledge Base":
             st.dataframe(res, use_container_width=True)
 
             insights = recall_engine.generate_structured_insights(res)
-            answer = recall_engine.generate_natural_language_answer(
-                insights=insights,
-                query=q
-            )
+            answer = recall_engine.generate_natural_language_answer(insights, q)
 
             st.markdown("### 🧠 Answer")
             st.markdown(answer)
@@ -328,3 +314,50 @@ else:
             df = mem_manager.load_memory_dataframe(mid)
             emb_engine.index_dataframe(path, df, id_prefix=mid)
         st.success("Done")
+
+    st.markdown("---")
+    st.subheader("🛠 Manual Entry Configuration")
+
+    cfg = load_config()
+    field = st.selectbox("Select field", list(cfg.keys()) + ["➕ Add new"])
+
+    if field == "➕ Add new":
+        new_name = st.text_input("Column name")
+        new_type = st.selectbox("Type", ["text", "select", "date"])
+
+        if st.button("Create") and new_name:
+            cfg[new_name] = {"type": new_type}
+            save_config(cfg)
+            st.success("Field added")
+            st.rerun()
+
+    else:
+        meta = cfg[field]
+        meta["type"] = st.selectbox(
+            "Field type",
+            ["text", "select", "date"],
+            index=["text", "select", "date"].index(meta["type"])
+        )
+
+        if meta["type"] == "select":
+            opts = st.text_area(
+                "Dropdown options (one per line)",
+                "\n".join(meta.get("options", []))
+            )
+            meta["options"] = [o.strip() for o in opts.splitlines() if o.strip()]
+
+        if meta["type"] == "date":
+            meta["mode"] = st.radio("Date mode", ["full", "year"])
+
+        if st.button("Save changes"):
+            cfg[field] = meta
+            save_config(cfg)
+            st.success("Updated")
+            st.rerun()
+
+    st.markdown("""
+    **APMA**
+    - Stores DESCRIZIONE & SOLUZIONE
+    - Searches by APPLICAZIONE & TIPO MACCHINA
+    - Prevents repeat project issues
+    """)
