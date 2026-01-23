@@ -234,19 +234,31 @@ if mode == "Upload / Update Memory":
                 st.error("Please select or create a memory.")
             else:
                 df_manual = pd.DataFrame(st.session_state["manual_rows"])
+        
+                # 🔐 ALIGN TO REQUIRED SCHEMA
+                for col in REQUIRED_COLS:
+                    if col not in df_manual.columns:
+                        df_manual[col] = ""
+        
                 df_manual = df_manual[REQUIRED_COLS]
                 df_manual["AddedBy"] = st.session_state["user"]["id"]
-
-                meta = mem_manager.create_or_update_memory(target_memory, df_manual)
-
+        
+                meta = mem_manager.create_or_update_memory(
+                    target_memory,
+                    df_manual
+                )
+        
                 if emb_engine:
                     emb_engine.index_dataframe(
-                        meta["memory_path"], df_manual, id_prefix=meta["memory_id"]
+                        meta["memory_path"],
+                        df_manual,
+                        id_prefix=meta["memory_id"]
                     )
-
+        
                 st.session_state["manual_rows"] = []
                 st.success(f"Saved to memory '{target_memory}'")
                 st.rerun()
+
 
 # =====================================================
 # QUERY MODE
