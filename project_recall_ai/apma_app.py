@@ -300,53 +300,58 @@ else:
             emb_engine.index_dataframe(path, df, id_prefix=mid)
         st.success("Done")
 
+    st.markdown("---")
+
+    # ================= MANUAL ENTRY CONFIG =================
+    from modules.manual_config import load_config, save_config
+
+    st.subheader("🛠 Manual Entry Configuration")
+
+    cfg = load_config()
+
+    field = st.selectbox("Select field", list(cfg.keys()) + ["➕ Add new"])
+
+    # ADD NEW FIELD
+    if field == "➕ Add new":
+        new_name = st.text_input("Column name")
+        new_type = st.selectbox("Type", ["text", "select", "date"])
+
+        if st.button("Create") and new_name:
+            cfg[new_name] = {"type": new_type}
+            save_config(cfg)
+            st.success("Field added")
+            st.rerun()
+
+    # EDIT EXISTING FIELD
+    else:
+        meta = cfg[field]
+
+        meta["type"] = st.selectbox(
+            "Field type",
+            ["text", "select", "date"],
+            index=["text", "select", "date"].index(meta["type"])
+        )
+
+        if meta["type"] == "select":
+            options = st.text_area(
+                "Dropdown options (one per line)",
+                value="\n".join(meta.get("options", []))
+            )
+            meta["options"] = [o.strip() for o in options.splitlines() if o.strip()]
+
+        if meta["type"] == "date":
+            meta["mode"] = st.radio("Date mode", ["full", "year"])
+
+        if st.button("Save changes"):
+            cfg[field] = meta
+            save_config(cfg)
+            st.success("Updated")
+            st.rerun()
+
     st.markdown("""
     **APMA**
     - Stores DESCRIZIONE & SOLUZIONE
     - Searches by APPLICAZIONE & TIPO MACCHINA
     - Prevents repeat project issues
     """)
-from modules.manual_config import load_config, save_config
 
-st.subheader("🛠 Manual Entry Configuration")
-
-cfg = load_config()
-
-field = st.selectbox("Select field", list(cfg.keys()) + ["➕ Add new"])
-
-# ADD NEW FIELD
-if field == "➕ Add new":
-    new_name = st.text_input("Column name")
-    new_type = st.selectbox("Type", ["text", "select", "date"])
-
-    if st.button("Create") and new_name:
-        cfg[new_name] = {"type": new_type}
-        save_config(cfg)
-        st.success("Field added")
-        st.rerun()
-
-# EDIT EXISTING FIELD
-else:
-    meta = cfg[field]
-
-    meta["type"] = st.selectbox(
-        "Field type",
-        ["text", "select", "date"],
-        index=["text","select","date"].index(meta["type"])
-    )
-
-    if meta["type"] == "select":
-        options = st.text_area(
-            "Dropdown options (one per line)",
-            value="\n".join(meta.get("options", []))
-        )
-        meta["options"] = [o.strip() for o in options.splitlines() if o.strip()]
-
-    if meta["type"] == "date":
-        meta["mode"] = st.radio("Date mode", ["full", "year"])
-
-    if st.button("Save changes"):
-        cfg[field] = meta
-        save_config(cfg)
-        st.success("Updated")
-        st.rerun()
