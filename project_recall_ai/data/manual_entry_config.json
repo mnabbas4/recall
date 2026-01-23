@@ -1,0 +1,57 @@
+{
+  "COMMESSA": {
+    "type": "text",
+    "required": true
+  },
+  "CLIENTE": {
+    "type": "text",
+    "required": true
+  },
+  "DESCRIZIONE": {
+    "type": "text",
+    "multiline": true
+  },
+  "SOLUZIONE LESSON LEARNED": {
+    "type": "text",
+    "multiline": true
+  },
+  "TIPO MACCHINA": {
+    "type": "select",
+    "options": ["A-Compact", "A-Compact Penta", "Modulo caricato"]
+  },
+  "APPLICAZIONE": {
+    "type": "select",
+    "options": [
+      "H2 - Industrial and commercial refrigerators and freezers",
+      "I28 - Building, cold rooms, solar panel - Rigid facings (continuous)"
+    ]
+  },
+  "TIPO PROBLEMA": {
+    "type": "select",
+    "options": ["Venduto", "Cantiere", "Design", "Altro"]
+  },
+  "RCPRD": {
+    "type": "select",
+    "options": ["Yes", "No"]
+  },
+  "REPORT CANTIERE": {
+    "type": "select",
+    "options": ["Present", "Not present"]
+  },
+  "CONCERNED DEPARTMENTS": {
+    "type": "select",
+    "options": ["Engineering", "Sales", "Production", "Service"]
+  },
+  "REPORT RIUNIONE CHIUSURA PROGETTO": {
+    "type": "select",
+    "options": ["Yes", "No"]
+  },
+  "DATA INSERIMENTO": {
+    "type": "date",
+    "mode": "full"
+  },
+  "ANNO": {
+    "type": "date",
+    "mode": "year"
+  }
+}
