@@ -155,43 +155,58 @@ if mode == "Upload / Update Memory":
                     emb_engine.index_dataframe(meta["memory_path"], df, id_prefix=meta["memory_id"])
 
     # ================= MANUAL ENTRY ==================
-    st.markdown("---")
+    from modules.manual_config import load_config
+    from datetime import date
+    
     st.subheader("✍️ Manual Entry")
-
-    with st.form("manual"):
-        r1 = st.columns(4)
-        r2 = st.columns(4)
-        r3 = st.columns(4)
-        r4 = st.columns(3)
-
-        data = {
-            'COMMESSA': r1[0].text_input("COMMESSA"),
-            'CLIENTE': r1[1].text_input("CLIENTE"),
-            'ANNO': r1[2].text_input("ANNO"),
-            'TIPO MACCHINA': r1[3].text_input("TIPO MACCHINA"),
-
-            'APPLICAZIONE': r2[0].text_input("APPLICAZIONE"),
-            'TIPO PROBLEMA': r2[1].text_input("TIPO PROBLEMA"),
-            'DESCRIZIONE': r2[2].text_input("DESCRIZIONE"),
-            'SOLUZIONE LESSON LEARNED': r2[3].text_input("SOLUZIONE"),
-
-            'DATA INSERIMENTO': r3[0].text_input("DATA INSERIMENTO"),
-            'RCPRD': r3[1].text_input("RCPRD"),
-            'REPORT CANTIERE': r3[2].text_input("REPORT CANTIERE"),
-            'CONCERNED DEPARTMENTS': r3[3].text_input("DEPARTMENTS"),
-
-            'REPORT RIUNIONE CHIUSURA PROGETTO': r4[0].text_input("REPORT RIUNIONE")
-        }
-
-        submit = st.form_submit_button("Add")
-
-        if submit:
-            st.session_state.setdefault("manual_rows", []).append(data)
-            st.success("Added to buffer")
-
-    if st.session_state.get("manual_rows"):
-        buf = pd.DataFrame(st.session_state["manual_rows"])[REQUIRED_COLS]
-        st.dataframe(buf, use_container_width=True)
+    
+    config = load_config()
+    manual_data = {}
+    
+    with st.form("manual_dynamic"):
+        cols = st.columns(4)
+        col_idx = 0
+    
+        for field, meta in config.items():
+            ftype = meta["type"]
+            key = f"manual_{field}"
+    
+            with cols[col_idx]:
+                # TYPE 1 — TEXT
+                if ftype == "text":
+                    if meta.get("multiline"):
+                        manual_data[field] = st.text_area(field, key=key)
+                    else:
+                        manual_data[field] = st.text_input(field, key=key)
+    
+                # TYPE 2 — DROPDOWN
+                elif ftype == "select":
+                    manual_data[field] = st.selectbox(
+                        field,
+                        options=meta.get("options", []),
+                        key=key
+                    )
+    
+                # TYPE 3 — DATE / YEAR
+                elif ftype == "date":
+                    if meta.get("mode") == "year":
+                        year = st.selectbox(
+                            field,
+                            options=list(range(2000, date.today().year + 1)),
+                            key=key
+                        )
+                        manual_data[field] = str(year)
+                    else:
+                        d = st.date_input(field, key=key)
+                        manual_data[field] = d.isoformat()
+    
+            col_idx = (col_idx + 1) % 4
+    
+        submitted = st.form_submit_button("Add")
+    
+    if submitted:
+        st.session_state.setdefault("manual_rows", []).append(manual_data)
+        st.success("Row added")
 
 # =====================================================
 # QUERY MODE
@@ -291,3 +306,47 @@ else:
     - Searches by APPLICAZIONE & TIPO MACCHINA
     - Prevents repeat project issues
     """)
+from modules.manual_config import load_config, save_config
+
+st.subheader("🛠 Manual Entry Configuration")
+
+cfg = load_config()
+
+field = st.selectbox("Select field", list(cfg.keys()) + ["➕ Add new"])
+
+# ADD NEW FIELD
+if field == "➕ Add new":
+    new_name = st.text_input("Column name")
+    new_type = st.selectbox("Type", ["text", "select", "date"])
+
+    if st.button("Create") and new_name:
+        cfg[new_name] = {"type": new_type}
+        save_config(cfg)
+        st.success("Field added")
+        st.rerun()
+
+# EDIT EXISTING FIELD
+else:
+    meta = cfg[field]
+
+    meta["type"] = st.selectbox(
+        "Field type",
+        ["text", "select", "date"],
+        index=["text","select","date"].index(meta["type"])
+    )
+
+    if meta["type"] == "select":
+        options = st.text_area(
+            "Dropdown options (one per line)",
+            value="\n".join(meta.get("options", []))
+        )
+        meta["options"] = [o.strip() for o in options.splitlines() if o.strip()]
+
+    if meta["type"] == "date":
+        meta["mode"] = st.radio("Date mode", ["full", "year"])
+
+    if st.button("Save changes"):
+        cfg[field] = meta
+        save_config(cfg)
+        st.success("Updated")
+        st.rerun()
