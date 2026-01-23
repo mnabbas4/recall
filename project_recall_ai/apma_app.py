@@ -138,7 +138,6 @@ if mode == "Upload / Update Memory":
         st.warning("Login required.")
         st.stop()
 
-    # ---------------- FILE UPLOAD ----------------
     uploaded = st.file_uploader("Upload CSV / Excel", ["csv", "xlsx"])
 
     if uploaded:
@@ -234,31 +233,26 @@ if mode == "Upload / Update Memory":
                 st.error("Please select or create a memory.")
             else:
                 df_manual = pd.DataFrame(st.session_state["manual_rows"])
-        
-                # 🔐 ALIGN TO REQUIRED SCHEMA
+
                 for col in REQUIRED_COLS:
                     if col not in df_manual.columns:
                         df_manual[col] = ""
-        
+
                 df_manual = df_manual[REQUIRED_COLS]
                 df_manual["AddedBy"] = st.session_state["user"]["id"]
-        
-                meta = mem_manager.create_or_update_memory(
-                    target_memory,
-                    df_manual
-                )
-        
+
+                meta = mem_manager.create_or_update_memory(target_memory, df_manual)
+
                 if emb_engine:
                     emb_engine.index_dataframe(
                         meta["memory_path"],
                         df_manual,
                         id_prefix=meta["memory_id"]
                     )
-        
+
                 st.session_state["manual_rows"] = []
                 st.success(f"Saved to memory '{target_memory}'")
                 st.rerun()
-
 
 # =====================================================
 # QUERY MODE
@@ -345,6 +339,10 @@ else:
 
     else:
         meta = cfg[field]
+
+        # ---------- RENAME ----------
+        new_field_name = st.text_input("Rename field", value=field)
+
         meta["type"] = st.selectbox(
             "Field type",
             ["text", "select", "date"],
@@ -361,11 +359,26 @@ else:
         if meta["type"] == "date":
             meta["mode"] = st.radio("Date mode", ["full", "year"])
 
-        if st.button("Save changes"):
-            cfg[field] = meta
-            save_config(cfg)
-            st.success("Updated")
-            st.rerun()
+        col_a, col_b = st.columns(2)
+
+        with col_a:
+            if st.button("💾 Save changes"):
+                if new_field_name != field:
+                    cfg[new_field_name] = meta
+                    del cfg[field]
+                else:
+                    cfg[field] = meta
+
+                save_config(cfg)
+                st.success("Updated")
+                st.rerun()
+
+        with col_b:
+            if st.button("🗑 Delete field"):
+                del cfg[field]
+                save_config(cfg)
+                st.warning(f"Field '{field}' deleted")
+                st.rerun()
 
     st.markdown("""
     **APMA**
