@@ -1,6 +1,7 @@
-# apma_app.py - Deployment Ready Version (Manual Entry + Memory Fixed)
+# apma_app.py — Deployment Ready (Dynamic Embeddings + Manual Config Aware)
 
 print("hello")
+
 import streamlit as st
 import os
 import pandas as pd
@@ -41,6 +42,31 @@ REQUIRED_COLS = [
     'CONCERNED DEPARTMENTS',
     'REPORT RIUNIONE CHIUSURA PROGETTO'
 ]
+
+# =====================================================
+# HELPERS
+# =====================================================
+def build_semantic_text(df: pd.DataFrame) -> pd.Series:
+    """
+    Build semantic text dynamically from user-configured columns
+    OR fallback to all columns if config missing.
+    """
+    cfg = load_config()
+
+    semantic_cols = [
+        col for col, meta in cfg.items()
+        if meta.get("type") in ("text", "select", "date") and col in df.columns
+    ]
+
+    if not semantic_cols:
+        semantic_cols = list(df.columns)
+
+    return (
+        df[semantic_cols]
+        .astype(str)
+        .fillna("")
+        .agg(" | ".join, axis=1)
+    )
 
 # =====================================================
 # PAGE CONFIG
@@ -151,11 +177,16 @@ if mode == "Upload / Update Memory":
             mem_name = st.text_input("Memory name")
             if st.button("Save"):
                 df["AddedBy"] = st.session_state["user"]["id"]
+                df["__semantic_text__"] = build_semantic_text(df)
+
                 meta = mem_manager.create_or_update_memory(mem_name, df)
 
                 if emb_engine:
                     emb_engine.index_dataframe(
-                        meta["memory_path"], df, id_prefix=meta["memory_id"]
+                        meta["memory_path"],
+                        df,
+                        id_prefix=meta["memory_id"],
+                        text_column="__semantic_text__"
                     )
 
                 st.success("Saved")
@@ -226,7 +257,8 @@ if mode == "Upload / Update Memory":
 
     if st.session_state.get("manual_rows"):
         st.markdown("### 📄 Pending Manual Entries")
-        st.dataframe(pd.DataFrame(st.session_state["manual_rows"]), use_container_width=True)
+        df_preview = pd.DataFrame(st.session_state["manual_rows"])
+        st.dataframe(df_preview, use_container_width=True)
 
         if st.button("💾 Save Manual Entries"):
             if not target_memory:
@@ -238,8 +270,8 @@ if mode == "Upload / Update Memory":
                     if col not in df_manual.columns:
                         df_manual[col] = ""
 
-                df_manual = df_manual[REQUIRED_COLS]
                 df_manual["AddedBy"] = st.session_state["user"]["id"]
+                df_manual["__semantic_text__"] = build_semantic_text(df_manual)
 
                 meta = mem_manager.create_or_update_memory(target_memory, df_manual)
 
@@ -247,7 +279,8 @@ if mode == "Upload / Update Memory":
                     emb_engine.index_dataframe(
                         meta["memory_path"],
                         df_manual,
-                        id_prefix=meta["memory_id"]
+                        id_prefix=meta["memory_id"],
+                        text_column="__semantic_text__"
                     )
 
                 st.session_state["manual_rows"] = []
@@ -318,7 +351,14 @@ else:
     if emb_engine and st.button("Rebuild embeddings"):
         for mid, path in mem_manager.list_memories_full().items():
             df = mem_manager.load_memory_dataframe(mid)
-            emb_engine.index_dataframe(path, df, id_prefix=mid)
+            df["__semantic_text__"] = build_semantic_text(df)
+
+            emb_engine.index_dataframe(
+                path,
+                df,
+                id_prefix=mid,
+                text_column="__semantic_text__"
+            )
         st.success("Done")
 
     st.markdown("---")
@@ -340,7 +380,6 @@ else:
     else:
         meta = cfg[field]
 
-        # ---------- RENAME ----------
         new_field_name = st.text_input("Rename field", value=field)
 
         meta["type"] = st.selectbox(
@@ -379,10 +418,3 @@ else:
                 save_config(cfg)
                 st.warning(f"Field '{field}' deleted")
                 st.rerun()
-
-    st.markdown("""
-    **APMA**
-    - Stores DESCRIZIONE & SOLUZIONE
-    - Searches by APPLICAZIONE & TIPO MACCHINA
-    - Prevents repeat project issues
-    """)
