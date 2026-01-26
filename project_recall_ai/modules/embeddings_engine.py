@@ -16,11 +16,7 @@ def get_api_key():
         return os.getenv("OPENAI_API_KEY")
 
 OPENAI_API_KEY = get_api_key()
-
-if OPENAI_API_KEY:
-    client = OpenAI(api_key=OPENAI_API_KEY)
-else:
-    client = None
+client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
 
 # =====================================================
@@ -28,20 +24,17 @@ else:
 # =====================================================
 class EmbeddingsEngine:
     """
-    Responsible for:
-    - Building semantic text per row
-    - Generating embeddings
-    - Persisting them safely
+    Dynamic embeddings engine:
+    - Embeds ALL meaningful user data
+    - Works with manual entry & file upload
+    - No hardcoded column dependency
     """
 
-    # Only semantic columns (VERY IMPORTANT)
-    SEMANTIC_COLS = [
-        'TIPO MACCHINA',
-        'APPLICAZIONE',
-        'TIPO PROBLEMA',
-        'DESCRIZIONE',
-        'SOLUZIONE LESSON LEARNED'
-    ]
+    # Columns that should NEVER be embedded
+    EXCLUDED_COLS = {
+        "AddedBy",
+        "__index__"
+    }
 
     def __init__(self):
         if client is None:
@@ -53,14 +46,19 @@ class EmbeddingsEngine:
     # -------------------------------------------------
     def _text_for_row(self, row) -> str:
         """
-        Build clean semantic text for one row.
-        Metadata is intentionally excluded.
+        Build semantic text from ALL non-empty user columns.
         """
         parts = []
-        for col in self.SEMANTIC_COLS:
-            val = str(row.get(col, "")).strip()
-            if val:
-                parts.append(f"{col}: {val}")
+
+        for col, val in row.items():
+            if col in self.EXCLUDED_COLS:
+                continue
+
+            val = str(val).strip()
+            if not val or val.lower() == "nan":
+                continue
+
+            parts.append(f"{col}: {val}")
 
         return " | ".join(parts)
 
@@ -68,7 +66,6 @@ class EmbeddingsEngine:
     def embed_texts(self, texts):
         """
         Generate embeddings for list of texts.
-        Empty texts are skipped upstream.
         """
         resp = self.client.embeddings.create(
             model="text-embedding-3-large",
@@ -80,13 +77,8 @@ class EmbeddingsEngine:
     def index_dataframe(self, memory_path, df, id_prefix="mem"):
         """
         Create and save embeddings for a dataframe.
-
-        Output format:
-        {
-            "row_ids": [...],
-            "embeddings": [...]
-        }
         """
+
         texts = []
         row_ids = []
 
@@ -103,16 +95,13 @@ class EmbeddingsEngine:
 
         mem_path = Path(memory_path)
         mem_id = mem_path.stem
-
         out_path = mem_path.parent / f"{mem_id}_embeddings.json"
 
         payload = {
             "model": "text-embedding-3-large",
-            "semantic_columns": self.SEMANTIC_COLS,
             "row_ids": row_ids,
             "embeddings": embeddings
         }
 
         out_path.write_text(json.dumps(payload, ensure_ascii=False))
-
         return str(out_path)
