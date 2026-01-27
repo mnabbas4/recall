@@ -272,14 +272,94 @@ elif mode == "Query Knowledge Base":
         st.dataframe(res, use_container_width=True)
 
 # =====================================================
-# SETTINGS (UNCHANGED)
+# SETTINGS
 # =====================================================
 else:
     st.header("⚙️ Settings")
 
-    if emb_engine and st.button("Rebuild embeddings"):
-        for mid, path in mem_manager.list_memories_full().items():
-            df = mem_manager.load_memory_dataframe(mid)
-            df["__semantic_text__"] = build_semantic_text(df)
-            emb_engine.index_dataframe(path, df)
-        st.success("Rebuilt")
+    # ---- MEMORY INFO ----
+    st.write("Saved memories:")
+    memories = mem_manager.list_memories()
+    if memories:
+        for m in memories:
+            st.write("-", m)
+    else:
+        st.info("No memories found.")
+
+    # ---- EMBEDDINGS REBUILD ----
+    st.markdown("### 🔁 Embeddings")
+
+    if emb_engine:
+        if st.button("Rebuild embeddings"):
+            for mid, path in mem_manager.list_memories_full().items():
+                df = mem_manager.load_memory_dataframe(mid)
+                df["__semantic_text__"] = build_semantic_text(df)
+
+                emb_engine.index_dataframe(
+                    path,
+                    df,
+                    id_prefix=mid
+                )
+            st.success("Embeddings rebuilt successfully.")
+    else:
+        st.warning("Embeddings engine not available (API key missing).")
+
+    # ---- MANUAL ENTRY CONFIGURATION (ALWAYS VISIBLE) ----
+    st.markdown("---")
+    st.subheader("🛠 Manual Entry Configuration")
+
+    cfg = load_config()
+    field = st.selectbox("Select field", list(cfg.keys()) + ["➕ Add new"])
+
+    if field == "➕ Add new":
+        new_name = st.text_input("Column name")
+        new_type = st.selectbox("Type", ["text", "select", "date"])
+
+        if st.button("Create") and new_name:
+            cfg[new_name] = {"type": new_type}
+            save_config(cfg)
+            st.success("Field added")
+            st.rerun()
+
+    else:
+        meta = cfg[field]
+
+        new_field_name = st.text_input("Rename field", value=field)
+
+        meta["type"] = st.selectbox(
+            "Field type",
+            ["text", "select", "date"],
+            index=["text", "select", "date"].index(meta["type"])
+        )
+
+        if meta["type"] == "select":
+            opts = st.text_area(
+                "Dropdown options (one per line)",
+                "\n".join(meta.get("options", []))
+            )
+            meta["options"] = [o.strip() for o in opts.splitlines() if o.strip()]
+
+        if meta["type"] == "date":
+            meta["mode"] = st.radio("Date mode", ["full", "year"])
+
+        col_a, col_b = st.columns(2)
+
+        with col_a:
+            if st.button("💾 Save changes"):
+                if new_field_name != field:
+                    cfg[new_field_name] = meta
+                    del cfg[field]
+                else:
+                    cfg[field] = meta
+
+                save_config(cfg)
+                st.success("Updated")
+                st.rerun()
+
+        with col_b:
+            if st.button("🗑 Delete field"):
+                del cfg[field]
+                save_config(cfg)
+                st.warning(f"Field '{field}' deleted")
+                st.rerun()
+
