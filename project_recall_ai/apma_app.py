@@ -187,12 +187,13 @@ if mode == "Upload / Update Memory":
                 meta = mem_manager.create_or_update_memory(mem_name, df)
 
                 if emb_engine:
+                    
                     emb_engine.index_dataframe(
                         meta["memory_path"],
                         df,
-                        id_prefix=meta["memory_id"],
-                        text_column="__semantic_text__"
+                        id_prefix=meta["memory_id"]
                     )
+
 
                 st.success("File data saved")
 
@@ -267,12 +268,13 @@ if mode == "Upload / Update Memory":
                 meta = mem_manager.create_or_update_memory(target_memory, df_manual)
 
                 if emb_engine:
+                    
                     emb_engine.index_dataframe(
                         meta["memory_path"],
                         df_manual,
-                        id_prefix=meta["memory_id"],
-                        text_column="__semantic_text__"
+                        id_prefix=meta["memory_id"]
                     )
+
 
                 st.session_state["manual_rows"] = []
                 st.success(f"Saved to memory '{target_memory}'")
