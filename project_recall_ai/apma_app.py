@@ -1,6 +1,4 @@
-# apma_app.py — Deployment Ready (Append-Safe + Dynamic Semantic Embeddings)
-
-print("hello")
+# apma_app.py — Stable + Append-Safe + Config-Aware (NO FEATURE LOSS)
 
 import streamlit as st
 import os
@@ -47,14 +45,11 @@ REQUIRED_COLS = [
 # HELPERS
 # =====================================================
 def build_semantic_text(df: pd.DataFrame) -> pd.Series:
-    """
-    Build semantic text from user-configured columns.
-    """
     cfg = load_config()
 
     semantic_cols = [
-        c for c, meta in cfg.items()
-        if c in df.columns and meta.get("type") in ("text", "select", "date")
+        col for col, meta in cfg.items()
+        if meta.get("type") in ("text", "select", "date") and col in df.columns
     ]
 
     if not semantic_cols:
@@ -68,15 +63,14 @@ def build_semantic_text(df: pd.DataFrame) -> pd.Series:
     )
 
 def append_to_memory(mem_manager, memory_name, new_df):
-    try:
+    memories = mem_manager.list_memories()
+
+    if memory_name in memories:
         existing = mem_manager.load_memory_dataframe(memory_name)
-        if existing is not None and not existing.empty:
-            return pd.concat([existing, new_df], ignore_index=True)
-    except FileNotFoundError:
-        pass  # memory does not exist yet → create new
-
-    return new_df
-
+        combined = pd.concat([existing, new_df], ignore_index=True)
+        return combined
+    else:
+        return new_df
 
 # =====================================================
 # PAGE CONFIG
@@ -170,6 +164,10 @@ mode = st.sidebar.selectbox("📂 Mode", [
 if mode == "Upload / Update Memory":
     st.header("📤 Upload / Update Memory")
 
+    if not st.session_state.get("user"):
+        st.warning("Login required.")
+        st.stop()
+
     uploaded = st.file_uploader("Upload CSV / Excel", ["csv", "xlsx"])
 
     if uploaded:
@@ -177,10 +175,11 @@ if mode == "Upload / Update Memory":
         if err:
             st.error(err)
         else:
+            st.success(f"Validated {len(df)} rows")
             st.dataframe(df.head(), use_container_width=True)
-            mem_name = st.text_input("Memory name")
 
-            if st.button("Save"):
+            mem_name = st.text_input("Memory name")
+            if st.button("Save file data"):
                 df["AddedBy"] = st.session_state["user"]["id"]
                 df["__semantic_text__"] = build_semantic_text(df)
 
@@ -188,47 +187,58 @@ if mode == "Upload / Update Memory":
                 meta = mem_manager.create_or_update_memory(mem_name, df)
 
                 if emb_engine:
-                    emb_engine.index_dataframe(meta["memory_path"], df)
+                    emb_engine.index_dataframe(
+                        meta["memory_path"],
+                        df,
+                        id_prefix=meta["memory_id"],
+                        text_column="__semantic_text__"
+                    )
 
-                st.success("Memory saved and indexed")
+                st.success("File data saved")
 
     # ---------------- MANUAL ENTRY ----------------
     st.markdown("---")
     st.subheader("✍️ Manual Entry")
 
-    cfg = load_config()
+    config = load_config()
     manual_data = {}
 
     memories = mem_manager.list_memories()
+
     mem_mode = st.radio(
         "Save manual entry to:",
         ["Create new memory", "Append to existing memory"],
         horizontal=True
     )
 
-    target_memory = (
-        st.text_input("New memory name")
-        if mem_mode == "Create new memory"
-        else st.selectbox("Select memory", memories)
-    )
+    target_memory = None
+    if mem_mode == "Create new memory":
+        target_memory = st.text_input("New memory name")
+    else:
+        if memories:
+            target_memory = st.selectbox("Select memory", memories)
+        else:
+            st.warning("No existing memories available")
 
-    with st.form("manual_form"):
+    with st.form("manual_dynamic"):
         cols = st.columns(4)
-        i = 0
-        for field, meta in cfg.items():
-            with cols[i]:
+        col_idx = 0
+
+        for field, meta in config.items():
+            key = f"manual_{field}"
+            with cols[col_idx]:
                 if meta["type"] == "text":
-                    manual_data[field] = st.text_input(field)
+                    manual_data[field] = st.text_input(field, key=key)
                 elif meta["type"] == "select":
-                    manual_data[field] = st.selectbox(field, meta.get("options", []))
+                    manual_data[field] = st.selectbox(field, meta.get("options", []), key=key)
                 elif meta["type"] == "date":
                     if meta.get("mode") == "year":
-                        manual_data[field] = str(
-                            st.selectbox(field, range(2000, date.today().year + 1))
-                        )
+                        y = st.selectbox(field, list(range(2000, date.today().year + 1)), key=key)
+                        manual_data[field] = str(y)
                     else:
-                        manual_data[field] = st.date_input(field).isoformat()
-            i = (i + 1) % 4
+                        d = st.date_input(field, key=key)
+                        manual_data[field] = d.isoformat()
+            col_idx = (col_idx + 1) % 4
 
         submitted = st.form_submit_button("Add row")
 
@@ -237,39 +247,87 @@ if mode == "Upload / Update Memory":
         st.success("Row added")
 
     if st.session_state.get("manual_rows"):
-        df_manual = pd.DataFrame(st.session_state["manual_rows"])
-        st.dataframe(df_manual, use_container_width=True)
+        st.markdown("### 📄 Pending Manual Entries")
+        st.dataframe(pd.DataFrame(st.session_state["manual_rows"]), use_container_width=True)
 
         if st.button("💾 Save Manual Entries"):
-            for col in REQUIRED_COLS:
-                if col not in df_manual.columns:
-                    df_manual[col] = ""
+            if not target_memory:
+                st.error("Please select or create a memory.")
+            else:
+                df_manual = pd.DataFrame(st.session_state["manual_rows"])
 
-            df_manual["AddedBy"] = st.session_state["user"]["id"]
-            df_manual["__semantic_text__"] = build_semantic_text(df_manual)
+                for col in REQUIRED_COLS:
+                    if col not in df_manual.columns:
+                        df_manual[col] = ""
 
-            df_manual = append_to_memory(mem_manager, target_memory, df_manual)
-            meta = mem_manager.create_or_update_memory(target_memory, df_manual)
+                df_manual["AddedBy"] = st.session_state["user"]["id"]
+                df_manual["__semantic_text__"] = build_semantic_text(df_manual)
 
-            if emb_engine:
-                emb_engine.index_dataframe(meta["memory_path"], df_manual)
+                df_manual = append_to_memory(mem_manager, target_memory, df_manual)
+                meta = mem_manager.create_or_update_memory(target_memory, df_manual)
 
-            st.session_state["manual_rows"] = []
-            st.success("Manual entries saved and indexed")
-            st.rerun()
+                if emb_engine:
+                    emb_engine.index_dataframe(
+                        meta["memory_path"],
+                        df_manual,
+                        id_prefix=meta["memory_id"],
+                        text_column="__semantic_text__"
+                    )
+
+                st.session_state["manual_rows"] = []
+                st.success(f"Saved to memory '{target_memory}'")
+                st.rerun()
 
 # =====================================================
-# QUERY MODE (UNCHANGED)
+# QUERY MODE
 # =====================================================
 elif mode == "Query Knowledge Base":
     st.header("🔍 Query")
 
-    mem = st.selectbox("Memory", mem_manager.list_memories())
-    q = st.text_area("Query")
+    mems = mem_manager.list_memories()
+    if not mems:
+        st.warning("No memories")
+        st.stop()
 
-    if st.button("Search") and emb_engine:
-        res = recall_engine.query_memory(mem, q)
-        st.dataframe(res, use_container_width=True)
+    mem = st.selectbox("Memory", mems)
+
+    query_mode = st.radio(
+        "Query type",
+        ["AI Semantic Search", "Structured Filter Search"],
+        horizontal=True
+    )
+
+    if query_mode == "Structured Filter Search":
+        FILTERABLE_COLUMNS = {
+            "COMMESSA": "COMMESSA",
+            "CLIENTE": "CLIENTE",
+            "ANNO": "ANNO",
+            "TIPO MACCHINA": "TIPO MACCHINA",
+            "APPLICAZIONE": "APPLICAZIONE",
+            "TIPO PROBLEMA": "TIPO PROBLEMA"
+        }
+
+        c1, c2 = st.columns(2)
+        col = c1.selectbox("Filter by", FILTERABLE_COLUMNS.keys())
+        val = c2.text_input("Value")
+        exact = st.checkbox("Exact match", False)
+
+        if st.button("Filter"):
+            df = recall_engine.filter_memory(mem, FILTERABLE_COLUMNS[col], val, exact)
+            st.dataframe(df, use_container_width=True)
+            st.info(f"{len(df)} records found")
+
+    else:
+        q = st.text_area("Query")
+        if st.button("Search") and emb_engine:
+            res = recall_engine.query_memory(mem, q)
+            st.dataframe(res, use_container_width=True)
+
+            insights = recall_engine.generate_structured_insights(res)
+            answer = recall_engine.generate_natural_language_answer(insights, q)
+
+            st.markdown("### 🧠 Answer")
+            st.markdown(answer)
 
 # =====================================================
 # SETTINGS
@@ -277,34 +335,22 @@ elif mode == "Query Knowledge Base":
 else:
     st.header("⚙️ Settings")
 
-    # ---- MEMORY INFO ----
     st.write("Saved memories:")
-    memories = mem_manager.list_memories()
-    if memories:
-        for m in memories:
-            st.write("-", m)
-    else:
-        st.info("No memories found.")
+    for m in mem_manager.list_memories():
+        st.write("-", m)
 
-    # ---- EMBEDDINGS REBUILD ----
-    st.markdown("### 🔁 Embeddings")
+    if emb_engine and st.button("Rebuild embeddings"):
+        for mid, path in mem_manager.list_memories_full().items():
+            df = mem_manager.load_memory_dataframe(mid)
+            df["__semantic_text__"] = build_semantic_text(df)
+            emb_engine.index_dataframe(
+                path,
+                df,
+                id_prefix=mid,
+                text_column="__semantic_text__"
+            )
+        st.success("Embeddings rebuilt")
 
-    if emb_engine:
-        if st.button("Rebuild embeddings"):
-            for mid, path in mem_manager.list_memories_full().items():
-                df = mem_manager.load_memory_dataframe(mid)
-                df["__semantic_text__"] = build_semantic_text(df)
-
-                emb_engine.index_dataframe(
-                    path,
-                    df,
-                    id_prefix=mid
-                )
-            st.success("Embeddings rebuilt successfully.")
-    else:
-        st.warning("Embeddings engine not available (API key missing).")
-
-    # ---- MANUAL ENTRY CONFIGURATION (ALWAYS VISIBLE) ----
     st.markdown("---")
     st.subheader("🛠 Manual Entry Configuration")
 
@@ -314,16 +360,13 @@ else:
     if field == "➕ Add new":
         new_name = st.text_input("Column name")
         new_type = st.selectbox("Type", ["text", "select", "date"])
-
         if st.button("Create") and new_name:
             cfg[new_name] = {"type": new_type}
             save_config(cfg)
             st.success("Field added")
             st.rerun()
-
     else:
         meta = cfg[field]
-
         new_field_name = st.text_input("Rename field", value=field)
 
         meta["type"] = st.selectbox(
@@ -343,7 +386,6 @@ else:
             meta["mode"] = st.radio("Date mode", ["full", "year"])
 
         col_a, col_b = st.columns(2)
-
         with col_a:
             if st.button("💾 Save changes"):
                 if new_field_name != field:
@@ -351,7 +393,6 @@ else:
                     del cfg[field]
                 else:
                     cfg[field] = meta
-
                 save_config(cfg)
                 st.success("Updated")
                 st.rerun()
@@ -362,4 +403,3 @@ else:
                 save_config(cfg)
                 st.warning(f"Field '{field}' deleted")
                 st.rerun()
-
