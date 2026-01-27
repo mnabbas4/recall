@@ -1,4 +1,5 @@
-# apma_app.py — Stable + Append-Safe + Config-Aware (NO FEATURE LOSS)
+
+# apma_app.py — Stable + Append-Safe + Config-Aware + Column-Safe (NO FEATURE LOSS)
 
 import streamlit as st
 import os
@@ -26,51 +27,45 @@ if OPENAI_API_KEY:
     os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
 
 REQUIRED_COLS = [
-    'COMMESSA',
-    'CLIENTE',
-    'ANNO',
-    'TIPO MACCHINA',
-    'APPLICAZIONE',
-    'TIPO PROBLEMA',
-    'DESCRIZIONE',
-    'SOLUZIONE LESSON LEARNED',
-    'DATA INSERIMENTO',
-    'RCPRD',
-    'REPORT CANTIERE',
-    'CONCERNED DEPARTMENTS',
-    'REPORT RIUNIONE CHIUSURA PROGETTO'
+    'COMMESSA', 'CLIENTE', 'ANNO', 'TIPO MACCHINA', 'APPLICAZIONE',
+    'TIPO PROBLEMA', 'DESCRIZIONE', 'SOLUZIONE LESSON LEARNED',
+    'DATA INSERIMENTO', 'RCPRD', 'REPORT CANTIERE',
+    'CONCERNED DEPARTMENTS', 'REPORT RIUNIONE CHIUSURA PROGETTO'
 ]
+
+SYSTEM_COLS = {
+    "__semantic_text__", "AddedBy", "df_idx",
+    "TextScore", "PhaseBonus", "CategoryBonus", "FinalScore"
+}
 
 # =====================================================
 # HELPERS
 # =====================================================
+def normalize(col: str) -> str:
+    return col.lower().replace(" ", "").replace("_", "")
+
 def build_semantic_text(df: pd.DataFrame) -> pd.Series:
     cfg = load_config()
-
     semantic_cols = [
         col for col, meta in cfg.items()
         if meta.get("type") in ("text", "select", "date") and col in df.columns
     ]
-
     if not semantic_cols:
         semantic_cols = list(df.columns)
-
-    return (
-        df[semantic_cols]
-        .astype(str)
-        .fillna("")
-        .agg(" | ".join, axis=1)
-    )
+    return df[semantic_cols].astype(str).fillna("").agg(" | ".join, axis=1)
 
 def append_to_memory(mem_manager, memory_name, new_df):
-    memories = mem_manager.list_memories()
-
-    if memory_name in memories:
+    if memory_name in mem_manager.list_memories():
         existing = mem_manager.load_memory_dataframe(memory_name)
-        combined = pd.concat([existing, new_df], ignore_index=True)
-        return combined
-    else:
-        return new_df
+        return pd.concat([existing, new_df], ignore_index=True)
+    return new_df
+
+def get_existing_columns(mem_manager):
+    cols = set()
+    for mem in mem_manager.list_memories():
+        df = mem_manager.load_memory_dataframe(mem)
+        cols.update([c for c in df.columns if c not in SYSTEM_COLS])
+    return sorted(cols)
 
 # =====================================================
 # PAGE CONFIG
@@ -92,7 +87,6 @@ if 'user' not in st.session_state:
 
 if st.session_state['user'] is None:
     st.sidebar.header("🔐 Login")
-
     auth_mode = st.sidebar.radio("Mode", ["Login", "Create account"])
 
     if auth_mode == "Create account":
@@ -100,15 +94,12 @@ if st.session_state['user'] is None:
         ln = st.sidebar.text_input("Last name")
         uid = st.sidebar.text_input("ID Number")
         pw = st.sidebar.text_input("Password", type="password")
-
         if st.sidebar.button("Create"):
             ok, msg = user_manager.create_user(fn, ln, uid, pw)
             st.sidebar.success(msg) if ok else st.sidebar.error(msg)
-
     else:
         uid = st.sidebar.text_input("ID Number")
         pw = st.sidebar.text_input("Password", type="password")
-
         if st.sidebar.button("Login"):
             ok, msg, profile = user_manager.authenticate(uid, pw)
             if ok:
@@ -331,42 +322,48 @@ elif mode == "Query Knowledge Base":
             st.markdown("### 🧠 Answer")
             st.markdown(answer)
 
+
 # =====================================================
 # SETTINGS
 # =====================================================
-else:
+if mode == "Settings":
     st.header("⚙️ Settings")
 
-    st.write("Saved memories:")
-    for m in mem_manager.list_memories():
-        st.write("-", m)
-
-    if emb_engine and st.button("Rebuild embeddings"):
-        for mid, path in mem_manager.list_memories_full().items():
-            df = mem_manager.load_memory_dataframe(mid)
-            df["__semantic_text__"] = build_semantic_text(df)
-            emb_engine.index_dataframe(
-                path,
-                df,
-                id_prefix=mid,
-                text_column="__semantic_text__"
-            )
-        st.success("Embeddings rebuilt")
-
-    st.markdown("---")
     st.subheader("🛠 Manual Entry Configuration")
 
     cfg = load_config()
+    existing_cols = get_existing_columns(mem_manager)
+    existing_norm = {normalize(c): c for c in existing_cols}
+
     field = st.selectbox("Select field", list(cfg.keys()) + ["➕ Add new"])
 
     if field == "➕ Add new":
-        new_name = st.text_input("Column name")
+        st.markdown("### Add Column")
+
+        col_choice = st.selectbox(
+            "Choose existing column (optional)",
+            ["— None —"] + existing_cols
+        )
+
+        custom_name = st.text_input("Or enter new column name")
         new_type = st.selectbox("Type", ["text", "select", "date"])
-        if st.button("Create") and new_name:
-            cfg[new_name] = {"type": new_type}
+
+        if st.button("Create"):
+            final_name = col_choice if col_choice != "— None —" else custom_name.strip()
+
+            if not final_name:
+                st.error("Please select or enter a column name.")
+                st.stop()
+
+            if normalize(final_name) in existing_norm or normalize(final_name) in map(normalize, cfg.keys()):
+                st.error("Column already exists. Please choose from the list.")
+                st.stop()
+
+            cfg[final_name] = {"type": new_type}
             save_config(cfg)
-            st.success("Field added")
+            st.success(f"Column '{final_name}' added")
             st.rerun()
+
     else:
         meta = cfg[field]
         new_field_name = st.text_input("Rename field", value=field)
@@ -390,11 +387,9 @@ else:
         col_a, col_b = st.columns(2)
         with col_a:
             if st.button("💾 Save changes"):
+                cfg[new_field_name] = meta
                 if new_field_name != field:
-                    cfg[new_field_name] = meta
                     del cfg[field]
-                else:
-                    cfg[field] = meta
                 save_config(cfg)
                 st.success("Updated")
                 st.rerun()
@@ -405,3 +400,4 @@ else:
                 save_config(cfg)
                 st.warning(f"Field '{field}' deleted")
                 st.rerun()
+
