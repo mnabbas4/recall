@@ -68,10 +68,15 @@ def build_semantic_text(df: pd.DataFrame) -> pd.Series:
     )
 
 def append_to_memory(mem_manager, memory_name, new_df):
-    existing = mem_manager.load_memory_dataframe(memory_name)
-    if existing is not None and not existing.empty:
-        return pd.concat([existing, new_df], ignore_index=True)
+    try:
+        existing = mem_manager.load_memory_dataframe(memory_name)
+        if existing is not None and not existing.empty:
+            return pd.concat([existing, new_df], ignore_index=True)
+    except FileNotFoundError:
+        pass  # memory does not exist yet → create new
+
     return new_df
+
 
 # =====================================================
 # PAGE CONFIG
