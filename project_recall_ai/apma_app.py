@@ -341,8 +341,10 @@ if mode == "Settings":
     field = st.selectbox(
         "Select field",
         list(cfg.keys()) + [FIELD_ADD],
+        key="settings_field_selector",
         format_func=lambda x: "➕ Add new" if x == FIELD_ADD else x
     )
+
 
 
     if field == FIELD_ADD:
@@ -369,19 +371,22 @@ if mode == "Settings":
         
         # Case 2: user typed a name → check duplicates (case-insensitive)
         if st.button("💾 Save column"):
+            
             # Case 2: user typed a name → check duplicates
-            if col_choice == "— None —":
+            if col_choice == "— None —" and final_name:
                 if (
                     normalize(final_name) in existing_norm
                     or normalize(final_name) in map(normalize, cfg.keys())
                 ):
-                    st.error("Column already exists. Please choose from the list.")
+                    st.warning("⚠️ Column already exists. Please choose from the list.")
                     st.stop()
+
 
             cfg[final_name] = {"type": new_type}
             save_config(cfg)
             st.success(f"Column '{final_name}' added")
             st.rerun()
+            
 
 
     else:
