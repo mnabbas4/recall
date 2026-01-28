@@ -373,6 +373,7 @@ if mode == "Settings":
         if st.button("💾 Save column"):
             
             # Case 2: user typed a name → check duplicates
+            #
             if col_choice == "— None —" and final_name:
                 if (
                     normalize(final_name) in existing_norm
@@ -390,6 +391,9 @@ if mode == "Settings":
 
 
     else:
+        if field not in cfg:
+            st.warning("Invalid field selected. Please reselect.")
+            st.stop()
         meta = cfg[field]
         new_field_name = st.text_input("Rename field", value=field)
 
