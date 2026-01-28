@@ -347,15 +347,24 @@ if mode == "Settings":
 
         custom_name = st.text_input("Or enter new column name")
         new_type = st.selectbox("Type", ["text", "select", "date"])
+        
 
-        if st.button("Create"):
-            final_name = col_choice if col_choice != "— None —" else custom_name.strip()
-
-            if not final_name:
-                st.error("Please select or enter a column name.")
-                st.stop()
-
-            if normalize(final_name) in existing_norm or normalize(final_name) in map(normalize, cfg.keys()):
+        final_name = col_choice if col_choice != "— None —" else custom_name.strip()
+        
+        if not final_name:
+            st.error("Please select or enter a column name.")
+            st.stop()
+        
+        # Case 1: user selected from dropdown → ALWAYS allowed
+        if col_choice != "— None —":
+            pass
+        
+        # Case 2: user typed a name → check duplicates (case-insensitive)
+        else:
+            if (
+                normalize(final_name) in existing_norm
+                or normalize(final_name) in map(normalize, cfg.keys())
+            ):
                 st.error("Column already exists. Please choose from the list.")
                 st.stop()
 
