@@ -366,7 +366,7 @@ if mode == "Settings":
             st.stop()
         
         # Case 1: user selected from dropdown → ALWAYS allowed
-       <# if col_choice != "— None —":
+       # if col_choice != "— None —":
          #   pass
         selected_existing_col = None
         if col_choice != "— None —":
