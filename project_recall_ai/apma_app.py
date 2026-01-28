@@ -259,12 +259,13 @@ if mode == "Upload / Update Memory":
                 meta = mem_manager.create_or_update_memory(target_memory, df_manual)
 
                 if emb_engine:
-                    
+                    full_df = mem_manager.load_memory_dataframe(target_memory)
                     emb_engine.index_dataframe(
                         meta["memory_path"],
-                        df_manual,
+                        full_df,
                         id_prefix=meta["memory_id"]
                     )
+
 
 
                 st.session_state["manual_rows"] = []
@@ -360,18 +361,21 @@ if mode == "Settings":
             pass
         
         # Case 2: user typed a name → check duplicates (case-insensitive)
-        else:
-            if (
-                normalize(final_name) in existing_norm
-                or normalize(final_name) in map(normalize, cfg.keys())
-            ):
-                st.error("Column already exists. Please choose from the list.")
-                st.stop()
+        if st.button("💾 Save column"):
+            # Case 2: user typed a name → check duplicates
+            if col_choice == "— None —":
+                if (
+                    normalize(final_name) in existing_norm
+                    or normalize(final_name) in map(normalize, cfg.keys())
+                ):
+                    st.error("Column already exists. Please choose from the list.")
+                    st.stop()
 
             cfg[final_name] = {"type": new_type}
             save_config(cfg)
             st.success(f"Column '{final_name}' added")
             st.rerun()
+
 
     else:
         meta = cfg[field]
