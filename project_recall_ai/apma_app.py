@@ -336,9 +336,16 @@ if mode == "Settings":
     existing_cols = get_existing_columns(mem_manager)
     existing_norm = {normalize(c): c for c in existing_cols}
 
-    field = st.selectbox("Select field", list(cfg.keys()) + ["➕ Add new"])
+    FIELD_ADD = "__ADD_NEW__"
+    
+    field = st.selectbox(
+        "Select field",
+        list(cfg.keys()) + [FIELD_ADD],
+        format_func=lambda x: "➕ Add new" if x == FIELD_ADD else x
+    )
 
-    if field == "➕ Add new":
+
+    if field == FIELD_ADD:
         st.markdown("### Add Column")
 
         col_choice = st.selectbox(
