@@ -400,17 +400,30 @@ if mode == "Settings":
         col_a, col_b = st.columns(2)
         with col_a:
             if st.button("💾 Save changes"):
+                new_norm = normalize(new_field_name)
+                existing_norms = {normalize(c): c for c in cfg.keys() if c != field}
+        
+                if new_norm in existing_norms:
+                    st.error("A column with this name already exists.")
+                    st.stop()
+        
                 cfg[new_field_name] = meta
                 if new_field_name != field:
                     del cfg[field]
+        
                 save_config(cfg)
-                st.success("Updated")
+                st.success("Field updated")
                 st.rerun()
+
 
         with col_b:
             if st.button("🗑 Delete field"):
-                del cfg[field]
-                save_config(cfg)
+                if field in REQUIRED_COLS:
+                    st.error("This is a required system column and cannot be deleted.")
+                    st.stop()
+        
+                save_config({k: v for k, v in cfg.items() if k != field})
                 st.warning(f"Field '{field}' deleted")
                 st.rerun()
+
 
