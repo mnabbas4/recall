@@ -366,9 +366,64 @@ if mode == "Settings":
             st.stop()
         
         # Case 1: user selected from dropdown → ALWAYS allowed
+       <# if col_choice != "— None —":
+         #   pass
+        selected_existing_col = None
         if col_choice != "— None —":
-            pass
-        
+            selected_existing_col = col_choice
+
+
+        if selected_existing_col:
+            st.markdown("### Existing Column Actions")
+    
+            rename_to = st.text_input(
+                "Rename selected column",
+                value=selected_existing_col,
+                key="rename_existing_column"
+            )
+    
+            col_r1, col_r2 = st.columns(2)
+    
+            with col_r1:
+                if st.button("✏️ Rename Column"):
+                    if normalize(rename_to) in map(normalize, cfg.keys()):
+                        st.error("Column already exists in manual configuration.")
+                        st.stop()
+    
+                    cfg[rename_to] = cfg.get(selected_existing_col, {"type": new_type})
+    
+                    if selected_existing_col in cfg:
+                        del cfg[selected_existing_col]
+    
+                    save_config(cfg)
+                    st.success("Column renamed successfully")
+                    st.rerun()
+    
+            with col_r2:
+                if st.button("🗑 Remove Column"):
+                    if selected_existing_col in REQUIRED_COLS:
+                        st.error("This column is required and cannot be removed.")
+                        st.stop()
+    
+                    if selected_existing_col in cfg:
+                        del cfg[selected_existing_col]
+    
+                    save_config(cfg)
+                    st.warning("Column removed from manual entry configuration")
+                    st.rerun()
+
+
+
+
+
+
+
+
+
+
+
+
+
         # Case 2: user typed a name → check duplicates (case-insensitive)
         if st.button("💾 Save column"):
             
