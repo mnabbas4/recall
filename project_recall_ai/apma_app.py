@@ -440,7 +440,10 @@ if mode == "Settings":
 
             cfg[final_name] = {"type": new_type}
             save_config(cfg)
+            
+            st.session_state.pop("settings_field_selector", None)
             st.success(f"Column '{final_name}' added")
+
             st.rerun()
             
 
