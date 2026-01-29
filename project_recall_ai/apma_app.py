@@ -333,7 +333,18 @@ if mode == "Settings":
     st.subheader("🛠 Manual Entry Configuration")
 
     cfg = load_config()
-    existing_cols = get_existing_columns(mem_manager)
+    # Columns from memories (dataframes)
+    memory_cols = get_existing_columns(mem_manager)
+    
+    # Columns from manual config
+    config_cols = list(load_config().keys())
+    
+    # Merge both (case-insensitive, no duplicates)
+    existing_cols = sorted({
+        c for c in memory_cols + config_cols
+        if c not in SYSTEM_COLS
+    })
+
     existing_norm = {normalize(c): c for c in existing_cols}
 
     FIELD_ADD = "__ADD_NEW__"
