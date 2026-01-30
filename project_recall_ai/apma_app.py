@@ -169,24 +169,46 @@ if mode == "Upload / Update Memory":
             st.success(f"Validated {len(df)} rows")
             st.dataframe(df.head(), use_container_width=True)
 
-            mem_name = st.text_input("Memory name")
+            memories = mem_manager.list_memories()
+            
+            file_mem_mode = st.radio(
+                "Save uploaded file to:",
+                ["Create new memory", "Append to existing memory"],
+                horizontal=True,
+                key="file_mem_mode"
+            )
+            
+            if file_mem_mode == "Create new memory":
+                mem_name = st.text_input("New memory name")
+            else:
+                if memories:
+                    mem_name = st.selectbox("Select existing memory", memories)
+                else:
+                    st.warning("No existing memories available")
+                    mem_name = None
+            
             if st.button("Save file data"):
+                if not mem_name:
+                    st.error("Please select or enter a memory name.")
+                    st.stop()
+            
                 df["AddedBy"] = st.session_state["user"]["id"]
                 df["__semantic_text__"] = build_semantic_text(df)
-
+            
                 df = append_to_memory(mem_manager, mem_name, df)
                 meta = mem_manager.create_or_update_memory(mem_name, df)
-
+            
                 if emb_engine:
-                    
                     emb_engine.index_dataframe(
                         meta["memory_path"],
                         df,
                         id_prefix=meta["memory_id"]
                     )
+            
+                st.success(
+                    f"File data {'appended to' if file_mem_mode == 'Append to existing memory' else 'saved as new'} memory '{mem_name}'"
+                )
 
-
-                st.success("File data saved")
 
     # ---------------- MANUAL ENTRY ----------------
     st.markdown("---")
