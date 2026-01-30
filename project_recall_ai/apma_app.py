@@ -227,12 +227,21 @@ if mode == "Upload / Update Memory":
 
     target_memory = None
     if mem_mode == "Create new memory":
-        target_memory = st.text_input("New memory name")
+        target_memory = st.text_input(
+            "New memory name",
+            key="manual_new_memory_name"
+        )
     else:
         if memories:
-            target_memory = st.selectbox("Select memory", memories)
+            target_memory = st.selectbox(
+                "Select memory",
+                memories,
+                key="manual_existing_memory"
+            )
         else:
             st.warning("No existing memories available")
+            target_memory = None
+
 
     with st.form("manual_dynamic"):
         cols = st.columns(4)
