@@ -179,10 +179,17 @@ if mode == "Upload / Update Memory":
             )
             
             if file_mem_mode == "Create new memory":
-                mem_name = st.text_input("New memory name")
+                mem_name = st.text_input(
+                    "New memory name",
+                    key="file_new_memory_name"
+                )
             else:
                 if memories:
-                    mem_name = st.selectbox("Select existing memory", memories)
+                    mem_name = st.selectbox(
+                        "Select existing memory",
+                        memories,
+                        key="file_existing_memory"
+                    )
                 else:
                     st.warning("No existing memories available")
                     mem_name = None
