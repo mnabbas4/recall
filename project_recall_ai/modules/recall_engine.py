@@ -285,45 +285,105 @@ class RecallEngine:
         }
 
         return insights
-    def generate_natural_language_answer(self, insights: dict, query: str) -> str:
-        """
-        Convert structured insights into a human-readable explanation.
-        """
+    def generate_natural_language_answer(
+        self,
+        insights: dict,
+        query: str,
+        template: dict | None = None
+    ) -> str:
     
+        # -------------------------------
+        # Fallback: no data
+        # -------------------------------
         if not insights or insights.get("matches", 0) == 0:
             return (
                 f"I could not find relevant past projects related to your query: "
                 f"'{query}'."
             )
     
+        # -------------------------------
+        # If NO template → keep OLD behavior
+        # -------------------------------
+        if not template:
+            machines = ", ".join(insights.get("top_machine_types", []))
+            applications = ", ".join(insights.get("top_applications", []))
+    
+            problems = insights.get("common_problems", [])
+            solutions = insights.get("common_solutions", [])
+    
+            text = []
+            text.append(
+                f"Based on {insights['matches']} similar historical projects related to "
+                f"**{applications}**, mainly involving **{machines}**, the following "
+                f"recurring problems were identified:"
+            )
+    
+            for p in problems:
+                text.append(f"- {p}")
+    
+            if solutions:
+                text.append(
+                    "\nTo address these issues, the following solutions and lessons learned were applied:"
+                )
+                for s in solutions:
+                    text.append(f"- {s}")
+    
+            text.append(
+                "\n**Summary:** Similar projects show that accurate layout definition, "
+                "realistic installation effort estimation, and early alignment with "
+                "clients and suppliers are critical to avoid cost overruns and delays."
+            )
+    
+            return "\n".join(text)
+    
+        # -------------------------------
+        # TEMPLATE-DRIVEN OUTPUT
+        # -------------------------------
+        sections = template.get("sections", [])
+        tone = template.get("tone", "simple")
+        length = template.get("length", "short")
+    
         machines = ", ".join(insights.get("top_machine_types", []))
         applications = ", ".join(insights.get("top_applications", []))
-    
         problems = insights.get("common_problems", [])
         solutions = insights.get("common_solutions", [])
     
-        text = []
-        text.append(
-            f"Based on {insights['matches']} similar historical projects related to "
-            f"**{applications}**, mainly involving **{machines}**, the following "
-            f"recurring problems were identified:"
-        )
+        output = []
     
-        for p in problems:
-            text.append(f"- {p}")
+        for section in sections:
+            title = section.strip().lower()
     
-        if solutions:
-            text.append("\nTo address these issues, the following solutions and lessons learned were applied:")
-            for s in solutions:
-                text.append(f"- {s}")
+            if title == "problem":
+                output.append("### Problem")
+                for p in problems[:5]:
+                    output.append(f"- {p}")
     
-        text.append(
-            "\n**Summary:** Similar projects show that accurate layout definition, "
-            "realistic installation effort estimation, and early alignment with "
-            "clients and suppliers are critical to avoid cost overruns and delays."
-        )
+            elif title == "solution":
+                output.append("### Solution")
+                for s in solutions[:5]:
+                    output.append(f"- {s}")
     
-        return "\n".join(text)
+            elif title == "key takeaways":
+                output.append("### Key Takeaways")
+                output.append(
+                    f"- Based on **{insights['matches']}** similar projects in **{applications}**"
+                )
+                output.append("- Early planning and stakeholder alignment are critical")
+                output.append("- Clear scope definition reduces execution risk")
+    
+            elif title == "context":
+                output.append("### Context")
+                output.append(f"- Applications: {applications}")
+                output.append(f"- Machine types: {machines}")
+    
+            else:
+                # Custom section name
+                output.append(f"### {section}")
+                output.append(
+                    "Relevant insights derived from historical project records."
+                )
+    
+        return "\n".join(output)
 
     # -------------------------------------------------
     def filter_memory(
