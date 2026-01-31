@@ -573,16 +573,17 @@ if mode == "Settings":
     
     templates = load_templates()
     template_names = list(templates.keys())
-    if not templates:
-        st.info("No summary templates yet. Create one below.")
-    else:
-        selected_template = st.selectbox(...)
+    
+    if not template_names:
+        st.warning("No summary templates found.")
+        st.stop()
     
     selected_template = st.selectbox(
         "Select summary template",
         template_names,
         key="selected_summary_template"
     )
+
     
     if selected_template:
         tmpl = templates[selected_template]
