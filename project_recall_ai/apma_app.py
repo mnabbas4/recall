@@ -589,7 +589,7 @@ if mode == "Settings":
         tmpl = templates[selected_template]
     
         sections = st.text_area(
-            "Summary sections (one per line)",
+            "📝 Summary instructions (In Your own words)",
             value="\n".join(tmpl.get("sections", []))
         )
     
