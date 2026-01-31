@@ -618,7 +618,8 @@ if mode == "Settings":
             )
         )
     
-        if st.button("💾 Save Summary Template"):
+        if st.button("💾 Save Summary Template", key="save_summary_template"):
+
             #
             if st.button("💾 Save Summary Template"):
                 if not instructions.strip():
