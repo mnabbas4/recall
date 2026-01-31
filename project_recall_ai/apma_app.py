@@ -621,7 +621,7 @@ if mode == "Settings":
         if st.button("💾 Save Summary Template", key="save_summary_template"):
 
             #
-            if st.button("💾 Save Summary Template"):
+            if st.button("💾 Save Summary Template", key="save_summary_template"):
                 if not instructions.strip():
                     st.warning("Please enter summary instructions.")
                     st.stop()
@@ -630,18 +630,19 @@ if mode == "Settings":
                     parsed = parse_summary_instructions(instructions)
             
                     templates[selected_template] = {
-                        "sections": parsed["sections"],
+                        "sections": parsed.get("sections", []),
                         "tone": parsed.get("tone", tone),
                         "length": parsed.get("length", length),
                         "instructions": instructions
                     }
             
                     save_templates(templates)
-                    st.success("Template generated from instructions ✅")
+                    st.success("Template saved successfully ✅")
                     rerun()
             
-                except Exception as e:
+                except Exception:
                     st.error("Could not understand instructions. Please rephrase.")
+
 
             save_templates(templates)
             st.success("Template updated successfully")
