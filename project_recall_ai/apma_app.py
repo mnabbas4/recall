@@ -634,5 +634,6 @@ if mode == "Settings":
             }
             save_templates(templates)
             st.success("Template created")
-            st.experimental_rerun()
+            rerun()   # ✅
+
 
