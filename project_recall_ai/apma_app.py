@@ -14,6 +14,7 @@ from modules.recall_engine import RecallEngine
 from modules.utils import ensure_data_dirs
 from modules import user_manager
 from modules.manual_config import load_config, save_config
+from modules.summary_templates import load_templates, save_templates
 
 # =====================================================
 # CONFIGURATION
@@ -549,4 +550,66 @@ if mode == "Settings":
                 st.warning(f"Field '{field}' deleted")
                 st.rerun()
 
+    st.subheader("🧠 Summary Output Configuration")
+    
+    templates = load_templates()
+    template_names = list(templates.keys())
+    
+    selected_template = st.selectbox(
+        "Select summary template",
+        template_names,
+        key="selected_summary_template"
+    )
+    
+    if selected_template:
+        tmpl = templates[selected_template]
+    
+        sections = st.text_area(
+            "Summary sections (one per line)",
+            value="\n".join(tmpl.get("sections", []))
+        )
+    
+        tone = st.selectbox(
+            "Tone",
+            ["simple", "detailed", "technical", "executive"],
+            index=["simple", "detailed", "technical", "executive"].index(
+                tmpl.get("tone", "simple")
+            )
+        )
+    
+        length = st.selectbox(
+            "Length",
+            ["short", "medium", "long"],
+            index=["short", "medium", "long"].index(
+                tmpl.get("length", "short")
+            )
+        )
+    
+        if st.button("💾 Save Summary Template"):
+            templates[selected_template] = {
+                "sections": [s.strip() for s in sections.splitlines() if s.strip()],
+                "tone": tone,
+                "length": length
+            }
+            save_templates(templates)
+            st.success("Template updated successfully")
+    
+    st.markdown("---")
+    
+    new_template_name = st.text_input("Create new summary template")
+    
+    if st.button("➕ Create Template"):
+        if not new_template_name:
+            st.error("Template name required")
+        elif new_template_name in templates:
+            st.error("Template already exists")
+        else:
+            templates[new_template_name] = {
+                "sections": ["Problem", "Solution"],
+                "tone": "simple",
+                "length": "short"
+            }
+            save_templates(templates)
+            st.success("Template created")
+            st.experimental_rerun()
 
