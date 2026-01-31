@@ -317,6 +317,10 @@ if mode == "Upload / Update Memory":
 elif mode == "Query Knowledge Base":
     st.header("🔍 Query")
     templates = load_templates()
+    if not templates:
+        st.warning("No summary templates found. Please create one in Settings.")
+        st.stop()
+
     
     summary_template_name = st.selectbox(
         "Select summary format",
@@ -366,7 +370,13 @@ elif mode == "Query Knowledge Base":
             st.dataframe(res, use_container_width=True)
 
             insights = recall_engine.generate_structured_insights(res)
-            answer = recall_engine.generate_natural_language_answer(insights, q)
+            answer = recall_engine.generate_natural_language_answer(
+                insights,
+                q,
+                template=selected_template
+            )
+
+
 
             st.markdown("### 🧠 Answer")
             st.markdown(answer)
@@ -563,6 +573,10 @@ if mode == "Settings":
     
     templates = load_templates()
     template_names = list(templates.keys())
+    if not templates:
+        st.info("No summary templates yet. Create one below.")
+    else:
+        selected_template = st.selectbox(...)
     
     selected_template = st.selectbox(
         "Select summary template",
