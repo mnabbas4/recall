@@ -316,6 +316,15 @@ if mode == "Upload / Update Memory":
 # =====================================================
 elif mode == "Query Knowledge Base":
     st.header("🔍 Query")
+    templates = load_templates()
+    
+    summary_template_name = st.selectbox(
+        "Select summary format",
+        list(templates.keys()),
+        key="query_summary_template"
+    )
+    
+    selected_template = templates.get(summary_template_name)
 
     mems = mem_manager.list_memories()
     if not mems:
