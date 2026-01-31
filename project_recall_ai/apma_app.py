@@ -15,6 +15,8 @@ from modules.utils import ensure_data_dirs
 from modules import user_manager
 from modules.manual_config import load_config, save_config
 from modules.summary_templates import load_templates, save_templates
+from modules.summary_parser import parse_summary_instructions
+
 
 # =====================================================
 # CONFIGURATION
@@ -588,10 +590,17 @@ if mode == "Settings":
     if selected_template:
         tmpl = templates[selected_template]
     
-        sections = st.text_area(
-            "📝 Summary instructions (In Your own words)",
-            value="\n".join(tmpl.get("sections", []))
+        instructions = st.text_area(
+            "📝 Summary instructions (Natural language)",
+            value=tmpl.get("instructions", ""),
+            placeholder=(
+                "Example:\n"
+                "Summarize the problem briefly, explain the root cause, "
+                "then list the solution and lessons learned."
+            ),
+            height=160
         )
+
     
         tone = st.selectbox(
             "Tone",
@@ -610,11 +619,29 @@ if mode == "Settings":
         )
     
         if st.button("💾 Save Summary Template"):
-            templates[selected_template] = {
-                "sections": [s.strip() for s in sections.splitlines() if s.strip()],
-                "tone": tone,
-                "length": length
-            }
+            #
+            if st.button("💾 Save Summary Template"):
+                if not instructions.strip():
+                    st.warning("Please enter summary instructions.")
+                    st.stop()
+            
+                try:
+                    parsed = parse_summary_instructions(instructions)
+            
+                    templates[selected_template] = {
+                        "sections": parsed["sections"],
+                        "tone": parsed.get("tone", tone),
+                        "length": parsed.get("length", length),
+                        "instructions": instructions
+                    }
+            
+                    save_templates(templates)
+                    st.success("Template generated from instructions ✅")
+                    rerun()
+            
+                except Exception as e:
+                    st.error("Could not understand instructions. Please rephrase.")
+
             save_templates(templates)
             st.success("Template updated successfully")
     
@@ -628,11 +655,14 @@ if mode == "Settings":
         elif new_template_name in templates:
             st.error("Template already exists")
         else:
+            
             templates[new_template_name] = {
-                "sections": ["Problem", "Solution"],
+                "sections": [],
                 "tone": "simple",
-                "length": "short"
+                "length": "short",
+                "instructions": ""
             }
+
             save_templates(templates)
             st.success("Template created")
             rerun()   # ✅
