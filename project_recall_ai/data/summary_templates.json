@@ -1,1 +1,11 @@
-
+{
+  "Default Summary": {
+    "sections": [
+      "Problem",
+      "Solution",
+      "Key Takeaways"
+    ],
+    "tone": "simple",
+    "length": "short"
+  }
+}
