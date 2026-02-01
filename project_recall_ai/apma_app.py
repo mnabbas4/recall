@@ -567,7 +567,7 @@ if mode == "Settings":
             if st.button("🗑 Delete field"):
                 if field in REQUIRED_COLS:
                     st.error("This is a required system column and cannot be deleted.")
-                    return #st.stop()
+                    st.stop()
         
                 save_config({k: v for k, v in cfg.items() if k != field})
                 st.warning(f"Field '{field}' deleted")
