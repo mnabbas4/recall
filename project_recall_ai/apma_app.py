@@ -580,7 +580,7 @@ if mode == "Settings":
     
     if not template_names:
         st.warning("No summary templates found.")
-        return #st.stop()
+        st.stop()
     
     selected_template = st.selectbox(
         "Select summary template",
