@@ -160,7 +160,7 @@ if mode == "Upload / Update Memory":
 
     if not st.session_state.get("user"):
         st.warning("Login required.")
-        st.stop()
+        return #st.stop()
 
     uploaded = st.file_uploader("Upload CSV / Excel", ["csv", "xlsx"])
 
@@ -200,7 +200,7 @@ if mode == "Upload / Update Memory":
             if st.button("Save file data"):
                 if not mem_name:
                     st.error("Please select or enter a memory name.")
-                    st.stop()
+                    return #st.stop()
             
                 df["AddedBy"] = st.session_state["user"]["id"]
                 df["__semantic_text__"] = build_semantic_text(df)
@@ -321,7 +321,7 @@ elif mode == "Query Knowledge Base":
     templates = load_templates()
     if not templates:
         st.warning("No summary templates found. Please create one in Settings.")
-        st.stop()
+        return #st.stop()
 
     
     summary_template_name = st.selectbox(
@@ -335,7 +335,7 @@ elif mode == "Query Knowledge Base":
     mems = mem_manager.list_memories()
     if not mems:
         st.warning("No memories")
-        st.stop()
+        return #st.stop()
 
     mem = st.selectbox("Memory", mems)
 
@@ -436,7 +436,7 @@ if mode == "Settings":
         
         if not final_name:
             st.error("Please select or enter a column name.")
-            st.stop()
+            return #st.stop()
         
         # Case 1: user selected from dropdown → ALWAYS allowed
        # if col_choice != "— None —":
@@ -461,7 +461,7 @@ if mode == "Settings":
                 if st.button("✏️ Rename Column"):
                     if normalize(rename_to) in map(normalize, cfg.keys()):
                         st.error("Column already exists in manual configuration.")
-                        st.stop()
+                        return #st.stop()
     
                     cfg[rename_to] = cfg.get(selected_existing_col, {"type": new_type})
     
@@ -476,7 +476,7 @@ if mode == "Settings":
                 if st.button("🗑 Remove Column"):
                     if selected_existing_col in REQUIRED_COLS:
                         st.error("This column is required and cannot be removed.")
-                        st.stop()
+                        return #st.stop()
     
                     if selected_existing_col in cfg:
                         del cfg[selected_existing_col]
@@ -508,7 +508,7 @@ if mode == "Settings":
                     or normalize(final_name) in map(normalize, cfg.keys())
                 ):
                     st.warning("⚠️ Column already exists. Please choose from the list.")
-                    st.stop()
+                    return #st.stop()
 
 
             cfg[final_name] = {"type": new_type}
@@ -524,7 +524,7 @@ if mode == "Settings":
     else:
         if field not in cfg:
             st.warning("Invalid field selected. Please reselect.")
-            st.stop()
+            return #st.stop()
         meta = cfg[field]
         new_field_name = st.text_input("Rename field", value=field)
 
@@ -552,7 +552,7 @@ if mode == "Settings":
         
                 if new_norm in existing_norms:
                     st.error("A column with this name already exists.")
-                    st.stop()
+                    return #st.stop()
         
                 cfg[new_field_name] = meta
                 if new_field_name != field:
@@ -567,7 +567,7 @@ if mode == "Settings":
             if st.button("🗑 Delete field"):
                 if field in REQUIRED_COLS:
                     st.error("This is a required system column and cannot be deleted.")
-                    st.stop()
+                    return #st.stop()
         
                 save_config({k: v for k, v in cfg.items() if k != field})
                 st.warning(f"Field '{field}' deleted")
@@ -580,7 +580,7 @@ if mode == "Settings":
     
     if not template_names:
         st.warning("No summary templates found.")
-        st.stop()
+        return #st.stop()
     
     selected_template = st.selectbox(
         "Select summary template",
@@ -626,7 +626,7 @@ if mode == "Settings":
         if st.button("💾 Save Summary Template", key="save_summary_template"):
             if not instructions.strip():
                 st.warning("Please enter summary instructions.")
-                st.stop()
+                return #st.stop()
         
             try:
                 parsed = parse_summary_instructions(instructions)
