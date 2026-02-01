@@ -372,11 +372,13 @@ elif mode == "Query Knowledge Base":
             st.dataframe(res, use_container_width=True)
 
             insights = recall_engine.generate_structured_insights(res)
-            answer = recall_engine.generate_natural_language_answer(
-                insights,
-                q,
-                template=selected_template
+            answer = recall_engine.generate_llm_summary(
+                insights=insights,
+                query=query,
+                template=template,
+                instructions=template_instructions
             )
+
 
 
 
