@@ -524,7 +524,7 @@ if mode == "Settings":
     else:
         if field not in cfg:
             st.warning("Invalid field selected. Please reselect.")
-            return #st.stop()
+            st.stop()
         meta = cfg[field]
         new_field_name = st.text_input("Rename field", value=field)
 
