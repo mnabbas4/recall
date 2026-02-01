@@ -160,7 +160,7 @@ if mode == "Upload / Update Memory":
 
     if not st.session_state.get("user"):
         st.warning("Login required.")
-        return #st.stop()
+        st.stop()
 
     uploaded = st.file_uploader("Upload CSV / Excel", ["csv", "xlsx"])
 
