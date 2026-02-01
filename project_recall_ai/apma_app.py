@@ -476,7 +476,7 @@ if mode == "Settings":
                 if st.button("🗑 Remove Column"):
                     if selected_existing_col in REQUIRED_COLS:
                         st.error("This column is required and cannot be removed.")
-                        return #st.stop()
+                        st.stop()
     
                     if selected_existing_col in cfg:
                         del cfg[selected_existing_col]
