@@ -410,3 +410,51 @@ class RecallEngine:
     
         return df[mask].reset_index(drop=True)
 
+
+
+
+    def generate_llm_summary(
+        self,
+        insights: dict,
+        query: str,
+        template: dict,
+        instructions: str
+    ) -> str:
+    
+        client = OpenAI()
+    
+        prompt = f"""
+    You are an expert analyst.
+    
+    User query:
+    {query}
+    
+    Historical insights:
+    - Total matches: {insights['matches']}
+    - Applications: {', '.join(insights.get('top_applications', []))}
+    - Machine types: {', '.join(insights.get('top_machine_types', []))}
+    
+    Common problems:
+    {chr(10).join(insights.get('common_problems', []))}
+    
+    Common solutions:
+    {chr(10).join(insights.get('common_solutions', []))}
+    
+    User instructions:
+    {instructions}
+    
+    Required structure:
+    Sections: {', '.join(template.get('sections', []))}
+    Tone: {template.get('tone')}
+    Length: {template.get('length')}
+    
+    Write a clear, detailed, outcome-driven summary.
+    """
+    
+        resp = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3
+        )
+    
+        return resp.choices[0].message.content.strip()
