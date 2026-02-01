@@ -436,7 +436,7 @@ if mode == "Settings":
         
         if not final_name:
             st.error("Please select or enter a column name.")
-            return #st.stop()
+            st.stop()
         
         # Case 1: user selected from dropdown → ALWAYS allowed
        # if col_choice != "— None —":
