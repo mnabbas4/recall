@@ -552,7 +552,7 @@ if mode == "Settings":
         
                 if new_norm in existing_norms:
                     st.error("A column with this name already exists.")
-                    return #st.stop()
+                    st.stop()
         
                 cfg[new_field_name] = meta
                 if new_field_name != field:
