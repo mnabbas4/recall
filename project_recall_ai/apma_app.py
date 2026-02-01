@@ -461,7 +461,7 @@ if mode == "Settings":
                 if st.button("✏️ Rename Column"):
                     if normalize(rename_to) in map(normalize, cfg.keys()):
                         st.error("Column already exists in manual configuration.")
-                        return #st.stop()
+                        st.stop()
     
                     cfg[rename_to] = cfg.get(selected_existing_col, {"type": new_type})
     
