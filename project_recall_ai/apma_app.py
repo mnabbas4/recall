@@ -626,7 +626,7 @@ if mode == "Settings":
         if st.button("💾 Save Summary Template", key="save_summary_template"):
             if not instructions.strip():
                 st.warning("Please enter summary instructions.")
-                return #st.stop()
+                st.stop()
         
             try:
                 parsed = parse_summary_instructions(instructions)
