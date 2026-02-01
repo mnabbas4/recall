@@ -200,7 +200,7 @@ if mode == "Upload / Update Memory":
             if st.button("Save file data"):
                 if not mem_name:
                     st.error("Please select or enter a memory name.")
-                    return #st.stop()
+                    st.stop()
             
                 df["AddedBy"] = st.session_state["user"]["id"]
                 df["__semantic_text__"] = build_semantic_text(df)
