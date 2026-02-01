@@ -335,7 +335,7 @@ elif mode == "Query Knowledge Base":
     mems = mem_manager.list_memories()
     if not mems:
         st.warning("No memories")
-        return #st.stop()
+        st.stop()
 
     mem = st.selectbox("Memory", mems)
 
