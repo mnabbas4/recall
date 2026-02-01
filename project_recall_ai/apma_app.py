@@ -321,7 +321,7 @@ elif mode == "Query Knowledge Base":
     templates = load_templates()
     if not templates:
         st.warning("No summary templates found. Please create one in Settings.")
-        return #st.stop()
+        st.stop()
 
     
     summary_template_name = st.selectbox(
