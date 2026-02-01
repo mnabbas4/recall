@@ -508,7 +508,7 @@ if mode == "Settings":
                     or normalize(final_name) in map(normalize, cfg.keys())
                 ):
                     st.warning("⚠️ Column already exists. Please choose from the list.")
-                    return #st.stop()
+                    st.stop()
 
 
             cfg[final_name] = {"type": new_type}
