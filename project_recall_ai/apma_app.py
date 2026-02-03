@@ -528,7 +528,9 @@ if mode == "Settings":
                         st.error("Column already exists in manual configuration.")
                         st.stop()
     
-                    cfg[rename_to] = cfg.get(selected_existing_col, {"type": new_type})
+                    old_meta = cfg.get(selected_existing_col, {})
+                    cfg[rename_to] = old_meta
+
     
                     if selected_existing_col in cfg:
                         del cfg[selected_existing_col]
@@ -654,9 +656,11 @@ if mode == "Settings":
             template_names,
             key="selected_summary_template"
         )
-    
+    selected_template = st.session_state.get("selected_summary_template")
     
     if selected_template:
+        
+
         tmpl = templates[selected_template]
     
         instructions = st.text_area(
@@ -691,6 +695,7 @@ if mode == "Settings":
     
             #
         if st.button("💾 Save Summary Template", key="save_summary_template"):
+            
             if not instructions.strip():
                 st.warning("Please enter summary instructions.")
             else:
@@ -713,8 +718,8 @@ if mode == "Settings":
                     st.error("Could not understand instructions. Please rephrase.")
         
         
-                save_templates(templates)
-                st.success("Template updated successfully")
+                #save_templates(templates)
+ 
     
     st.markdown("---")
     
