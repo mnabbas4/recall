@@ -16,12 +16,7 @@ from modules import user_manager
 from modules.manual_config import load_config, save_config
 from modules.summary_templates import load_templates, save_templates
 from modules.summary_parser import parse_summary_instructions
-from modules.download_utils import (
-    export_csv,
-    export_excel,
-    export_pdf,
-    export_word
-)
+from modules.download_utils import export_csv, export_excel, export_pdf, export_word
 
 
 # =====================================================
