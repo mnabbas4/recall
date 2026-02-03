@@ -446,11 +446,36 @@ elif mode == "Query Knowledge Base":
         
 
 
-
+            
 
            # st.markdown("### 🧠 Answer")
             #st.markdown(answer)
 
+            if "last_result_df" in st.session_state:
+                st.markdown("## ⬇️ Download Report")
+            
+                format_choice = st.selectbox(
+                    "Select format",
+                    ["CSV", "Excel", "Word", "PDF"],
+                    key="download_format"
+                )
+            
+                if st.button("Download"):
+                    df = st.session_state["last_result_df"]
+                    summary = st.session_state.get("last_summary", "")
+            
+                    file_bytes, mime, filename = export_report(
+                        df=df,
+                        summary=summary,
+                        format=format_choice.lower()
+                    )
+            
+                    st.download_button(
+                        label="⬇️ Click to download",
+                        data=file_bytes,
+                        file_name=filename,
+                        mime=mime
+                    )
 
 # =====================================================
 # SETTINGS
