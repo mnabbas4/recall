@@ -366,116 +366,90 @@ elif mode == "Query Knowledge Base":
             st.dataframe(df, use_container_width=True)
             st.info(f"{len(df)} records found")
 
+    #
     else:
         q = st.text_area("Query")
+    
         if st.button("Search"):
             if not emb_engine:
                 st.error("Embeddings engine not available.")
                 st.stop()
-        
+    
             if not q.strip():
                 st.warning("Please enter a query.")
                 st.stop()
-        
+    
             res = recall_engine.query_memory(mem, q)
-        
+    
             if res.empty:
                 st.info("No matching results found.")
                 st.stop()
-        
-            # ✅ STORE RESULTS
+    
             st.session_state["last_result_df"] = res
-            st.session_state["last_query"] = q    
-            st.dataframe(res, use_container_width=True)
-        
+            st.session_state["last_query"] = q
+    
             insights = recall_engine.generate_structured_insights(res)
-        
+    
             template = templates[summary_template_name]
-            instructions = template.get("instructions", "")
-        
             answer = recall_engine.generate_llm_summary(
                 insights=insights,
                 query=q,
                 template=template,
-                instructions=instructions
+                instructions=template.get("instructions", "")
             )
+    
             st.session_state["last_summary"] = answer
-            
-            st.markdown("### 🧠 Analysis Summary")
-            st.markdown(answer)
-            #
-            st.markdown("### ⬇️ Download Report")
-            
-            download_format = st.selectbox(
-                "Select format",
-                ["CSV", "Excel", "PDF", "Word"]
+    
+    
+    # ================= DISPLAY =================
+    if "last_result_df" in st.session_state:
+        df = st.session_state["last_result_df"]
+        summary = st.session_state["last_summary"]
+    
+        st.dataframe(df, use_container_width=True)
+    
+        st.markdown("### 🧠 Analysis Summary")
+        st.markdown(summary)
+    
+        st.markdown("## ⬇️ Download Report")
+    
+        format_choice = st.selectbox(
+            "Select format",
+            ["CSV", "Excel", "PDF", "Word"],
+            key="download_format"
+        )
+    
+        if format_choice == "CSV":
+            data = export_csv(df, summary)
+            st.download_button("Download CSV", data, "report.csv", "text/csv")
+    
+        elif format_choice == "Excel":
+            data = export_excel(df, summary)
+            st.download_button(
+                "Download Excel",
+                data,
+                "report.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
-            
-            if st.button("📥 Download"):
-                if download_format == "CSV":
-                    data = export_csv(res, answer)
-                    st.download_button("Download CSV", data, "report.csv", "text/csv")
-            
-                elif download_format == "Excel":
-                    data = export_excel(res, answer)
-                    st.download_button(
-                        "Download Excel",
-                        data,
-                        "report.xlsx",
-                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    )
-            
-                elif download_format == "PDF":
-                    data = export_pdf(res, answer)
-                    st.download_button(
-                        "Download PDF",
-                        data,
-                        "report.pdf",
-                        "application/pdf"
-                    )
-            
-                elif download_format == "Word":
-                    data = export_word(res, answer)
-                    st.download_button(
-                        "Download Word",
-                        data,
-                        "report.docx",
-                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                    )
+    
+        elif format_choice == "PDF":
+            data = export_pdf(df, summary)
+            st.download_button(
+                "Download PDF",
+                data,
+                "report.pdf",
+                "application/pdf"
+            )
+    
+        elif format_choice == "Word":
+            data = export_word(df, summary)
+            st.download_button(
+                "Download Word",
+                data,
+                "report.docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            )
 
-        
-
-
-            
-
-           # st.markdown("### 🧠 Answer")
-            #st.markdown(answer)
-
-            if "last_result_df" in st.session_state:
-                st.markdown("## ⬇️ Download Report")
-            
-                format_choice = st.selectbox(
-                    "Select format",
-                    ["CSV", "Excel", "Word", "PDF"],
-                    key="download_format"
-                )
-            
-                if st.button("Download"):
-                    df = st.session_state["last_result_df"]
-                    summary = st.session_state.get("last_summary", "")
-            
-                    file_bytes, mime, filename = export_report(
-                        df=df,
-                        summary=summary,
-                        format=format_choice.lower()
-                    )
-            
-                    st.download_button(
-                        label="⬇️ Click to download",
-                        data=file_bytes,
-                        file_name=filename,
-                        mime=mime
-                    )
 
 # =====================================================
 # SETTINGS
