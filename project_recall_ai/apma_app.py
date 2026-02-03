@@ -403,8 +403,8 @@ elif mode == "Query Knowledge Base":
 
 
 
-            st.markdown("### 🧠 Answer")
-            st.markdown(answer)
+           # st.markdown("### 🧠 Answer")
+            #st.markdown(answer)
 
 
 # =====================================================
