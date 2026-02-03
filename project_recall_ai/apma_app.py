@@ -608,7 +608,7 @@ if mode == "Settings":
         template_names,
         key="selected_summary_template"
     )
-
+    
     
     if selected_template:
         tmpl = templates[selected_template]
@@ -623,7 +623,7 @@ if mode == "Settings":
             ),
             height=160
         )
-
+    
     
         tone = st.selectbox(
             "Tone",
@@ -641,8 +641,8 @@ if mode == "Settings":
             )
         )
     
-
-
+    
+    
             #
         if st.button("💾 Save Summary Template", key="save_summary_template"):
             if not instructions.strip():
@@ -665,8 +665,8 @@ if mode == "Settings":
         
             except Exception:
                 st.error("Could not understand instructions. Please rephrase.")
-
-
+    
+    
             save_templates(templates)
             st.success("Template updated successfully")
     
@@ -687,7 +687,7 @@ if mode == "Settings":
                 "length": "short",
                 "instructions": ""
             }
-
+    
             save_templates(templates)
             st.success("Template created")
             rerun()   # ✅
