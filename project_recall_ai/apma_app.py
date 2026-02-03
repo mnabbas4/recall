@@ -456,8 +456,8 @@ if mode == "Settings":
         final_name = col_choice if col_choice != "— None —" else custom_name.strip()
         
         if not final_name:
-            st.error("Please select or enter a column name.")
-            st.stop()
+            st.info("⬆️ Select or enter a column name to enable saving.")
+            
         
         # Case 1: user selected from dropdown → ALWAYS allowed
        # if col_choice != "— None —":
@@ -520,25 +520,25 @@ if mode == "Settings":
 
         # Case 2: user typed a name → check duplicates (case-insensitive)
         if st.button("💾 Save column"):
-            
-            # Case 2: user typed a name → check duplicates
-            #
-            if col_choice == "— None —" and final_name:
-                if (
+        
+            if not final_name:
+                st.error("Please select or enter a column name.")
+            elif (
+                col_choice == "— None —"
+                and (
                     normalize(final_name) in existing_norm
                     or normalize(final_name) in map(normalize, cfg.keys())
-                ):
-                    st.warning("⚠️ Column already exists. Please choose from the list.")
-                    st.stop()
+                )
+            ):
+                st.warning("⚠️ Column already exists. Please choose from the list.")
+            else:
+                cfg[final_name] = {"type": new_type}
+                save_config(cfg)
+        
+                st.session_state.pop("settings_field_selector", None)
+                st.success(f"Column '{final_name}' added")
+                st.rerun()
 
-
-            cfg[final_name] = {"type": new_type}
-            save_config(cfg)
-            
-            st.session_state.pop("settings_field_selector", None)
-            st.success(f"Column '{final_name}' added")
-
-            st.rerun()
             
 
 
@@ -600,14 +600,16 @@ if mode == "Settings":
     template_names = list(templates.keys())
     
     if not template_names:
-        st.warning("No summary templates found.")
-        st.stop()
+        st.warning("No summary templates found. Create one below ⬇️")
+    else:
+        #
+        
     
-    selected_template = st.selectbox(
-        "Select summary template",
-        template_names,
-        key="selected_summary_template"
-    )
+        selected_template = st.selectbox(
+            "Select summary template",
+            template_names,
+            key="selected_summary_template"
+        )
     
     
     if selected_template:
@@ -647,28 +649,28 @@ if mode == "Settings":
         if st.button("💾 Save Summary Template", key="save_summary_template"):
             if not instructions.strip():
                 st.warning("Please enter summary instructions.")
-                st.stop()
+            else:
         
-            try:
-                parsed = parse_summary_instructions(instructions)
+                try:
+                    parsed = parse_summary_instructions(instructions)
+            
+                    templates[selected_template] = {
+                        "sections": parsed.get("sections", []),
+                        "tone": parsed.get("tone", tone),
+                        "length": parsed.get("length", length),
+                        "instructions": instructions
+                    }
+            
+                    save_templates(templates)
+                    st.success("Template saved successfully ✅")
+                    rerun()
+            
+                except Exception:
+                    st.error("Could not understand instructions. Please rephrase.")
         
-                templates[selected_template] = {
-                    "sections": parsed.get("sections", []),
-                    "tone": parsed.get("tone", tone),
-                    "length": parsed.get("length", length),
-                    "instructions": instructions
-                }
         
                 save_templates(templates)
-                st.success("Template saved successfully ✅")
-                rerun()
-        
-            except Exception:
-                st.error("Could not understand instructions. Please rephrase.")
-    
-    
-            save_templates(templates)
-            st.success("Template updated successfully")
+                st.success("Template updated successfully")
     
     st.markdown("---")
     
