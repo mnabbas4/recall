@@ -16,6 +16,12 @@ from modules import user_manager
 from modules.manual_config import load_config, save_config
 from modules.summary_templates import load_templates, save_templates
 from modules.summary_parser import parse_summary_instructions
+from modules.download_utils import (
+    export_csv,
+    export_excel,
+    export_pdf,
+    export_word
+)
 
 
 # =====================================================
@@ -398,6 +404,46 @@ elif mode == "Query Knowledge Base":
         
             st.markdown("### 🧠 Analysis Summary")
             st.markdown(answer)
+            #
+            st.markdown("### ⬇️ Download Report")
+            
+            download_format = st.selectbox(
+                "Select format",
+                ["CSV", "Excel", "PDF", "Word"]
+            )
+            
+            if st.button("📥 Download"):
+                if download_format == "CSV":
+                    data = export_csv(res, answer)
+                    st.download_button("Download CSV", data, "report.csv", "text/csv")
+            
+                elif download_format == "Excel":
+                    data = export_excel(res, answer)
+                    st.download_button(
+                        "Download Excel",
+                        data,
+                        "report.xlsx",
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
+            
+                elif download_format == "PDF":
+                    data = export_pdf(res, answer)
+                    st.download_button(
+                        "Download PDF",
+                        data,
+                        "report.pdf",
+                        "application/pdf"
+                    )
+            
+                elif download_format == "Word":
+                    data = export_word(res, answer)
+                    st.download_button(
+                        "Download Word",
+                        data,
+                        "report.docx",
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    )
+
         
 
 
