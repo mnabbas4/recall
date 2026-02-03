@@ -367,17 +367,38 @@ elif mode == "Query Knowledge Base":
 
     else:
         q = st.text_area("Query")
-        if st.button("Search") and emb_engine:
+        if st.button("Search"):
+            if not emb_engine:
+                st.error("Embeddings engine not available.")
+                st.stop()
+        
+            if not q.strip():
+                st.warning("Please enter a query.")
+                st.stop()
+        
             res = recall_engine.query_memory(mem, q)
+        
+            if res.empty:
+                st.info("No matching results found.")
+                st.stop()
+        
             st.dataframe(res, use_container_width=True)
-
+        
             insights = recall_engine.generate_structured_insights(res)
+        
+            template = templates[summary_template_name]
+            instructions = template.get("instructions", "")
+        
             answer = recall_engine.generate_llm_summary(
                 insights=insights,
-                query=query,
+                query=q,
                 template=template,
-                instructions=template_instructions
+                instructions=instructions
             )
+        
+            st.markdown("### 🧠 Analysis Summary")
+            st.markdown(answer)
+        
 
 
 
