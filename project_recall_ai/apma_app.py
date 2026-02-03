@@ -383,6 +383,9 @@ elif mode == "Query Knowledge Base":
                 st.info("No matching results found.")
                 st.stop()
         
+            # ✅ STORE RESULTS
+            st.session_state["last_result_df"] = res
+            st.session_state["last_query"] = q    
             st.dataframe(res, use_container_width=True)
         
             insights = recall_engine.generate_structured_insights(res)
@@ -396,7 +399,8 @@ elif mode == "Query Knowledge Base":
                 template=template,
                 instructions=instructions
             )
-        
+            st.session_state["last_summary"] = answer
+            
             st.markdown("### 🧠 Analysis Summary")
             st.markdown(answer)
             #
