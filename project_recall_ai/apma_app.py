@@ -402,49 +402,71 @@ elif mode == "Query Knowledge Base":
     
     
     # ================= DISPLAY =================
+    # ================= DISPLAY =================
     if "last_result_df" in st.session_state:
         df = st.session_state["last_result_df"]
-        summary = st.session_state["last_summary"]
+        summary = st.session_state.get("last_summary", "")
     
         st.dataframe(df, use_container_width=True)
     
         st.markdown("### 🧠 Analysis Summary")
         st.markdown(summary)
     
-        st.markdown("## ⬇️ Download Report")
+        # ================= DOWNLOAD OPTIONS =================
+        st.markdown("## ⬇️ Download Options")
+    
+        download_type = st.radio(
+            "What do you want to download?",
+            ["Only Table Results", "Only Summary Report", "Full Report (Table + Summary)"],
+            horizontal=True
+        )
     
         format_choice = st.selectbox(
             "Select format",
             ["CSV", "Excel", "PDF", "Word"],
-            key="download_format"
+            key="download_format_choice"
         )
     
+        # ---------- EXPORT CONTENT ----------
+        if download_type == "Only Table Results":
+            export_df = df
+            export_summary = ""
+    
+        elif download_type == "Only Summary Report":
+            export_df = pd.DataFrame()
+            export_summary = summary
+    
+        else:
+            export_df = df
+            export_summary = summary
+    
+        # ---------- DOWNLOAD BUTTON ----------
         if format_choice == "CSV":
-            data = export_csv(df, summary)
-            st.download_button("Download CSV", data, "report.csv", "text/csv")
+            data = export_csv(export_df, export_summary)
+            st.download_button("⬇️ Download CSV", data, "report.csv", "text/csv")
     
         elif format_choice == "Excel":
-            data = export_excel(df, summary)
+            data = export_excel(export_df, export_summary)
             st.download_button(
-                "Download Excel",
+                "⬇️ Download Excel",
                 data,
                 "report.xlsx",
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
     
         elif format_choice == "PDF":
-            data = export_pdf(df, summary)
+            data = export_pdf(export_df, export_summary)
             st.download_button(
-                "Download PDF",
+                "⬇️ Download PDF",
                 data,
                 "report.pdf",
                 "application/pdf"
             )
     
         elif format_choice == "Word":
-            data = export_word(df, summary)
+            data = export_word(export_df, export_summary)
             st.download_button(
-                "Download Word",
+                "⬇️ Download Word",
                 data,
                 "report.docx",
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
